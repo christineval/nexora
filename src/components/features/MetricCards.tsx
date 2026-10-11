@@ -1,0 +1,3 @@
+export default function MetricCards({ metrics }: { metrics: { label: string; value: string; note?: string }[] }) {
+  return <div className="mb-5 grid gap-4 sm:grid-cols-3">{metrics.map((metric, index) => <div key={metric.label} className={"rounded-xl border p-5 " + (index === 0 ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/20" : index === 1 ? "border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/20" : "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20")}><p className="text-2xl font-bold tabular-nums">{metric.value}</p><p className="mt-1 text-sm font-medium">{metric.label}</p>{metric.note && <p className="mt-2 text-xs text-slate-500 dark:text-neutral-400">{metric.note}</p>}</div>)}</div>;
+}

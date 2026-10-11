@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "incremental": false
+  },
+  "include": ["scripts/**/*.ts", "src/validations/user.schema.ts", "src/lib/access.ts"]
+}
