@@ -1,15 +1,19 @@
 import "server-only";
+import type { CurrentUser } from "@/lib/auth";
+import { orderOwnershipWhere } from "@/server/order-access";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { ChartTransaction, RecentOrder } from "@/types/views";
 
-export async function getDashboardMetrics({ includeRecentOrders = false } = {}) {
+export async function getDashboardMetrics(user: CurrentUser, { includeRecentOrders = false } = {}) {
+  const scope = orderOwnershipWhere(user);
   return prisma.$transaction(async (tx) => {
     const totalItems = await tx.products.count();
     const lowStockItems = await tx.products.count({ where: { status: "ACTIVE", stock_qty: { lte: 10 } } });
-    const sales = await tx.orders.findMany({ where: { status: "COMPLETED" }, select: { order_date: true, total_amount: true } });
-    const purchases = await tx.purchase_orders.findMany({ where: { status: "RECEIVED" }, select: { purchase_date: true, total_amount: true } });
+    const sales = await tx.orders.findMany({ where: { ...scope, status: "COMPLETED" }, select: { order_date: true, total_amount: true } });
+    const purchases = await tx.purchase_orders.findMany({ where: { ...scope, status: "RECEIVED" }, select: { purchase_date: true, total_amount: true } });
     const orders = includeRecentOrders ? await tx.orders.findMany({
+      where: scope,
       select: { id: true, total_amount: true, status: true, customers: { select: { name: true } } },
       orderBy: [{ order_date: "desc" }, { id: "desc" }],
       take: 4,

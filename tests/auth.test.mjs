@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { loadTs } from "./load-ts.mjs";
+import { sessionHarness } from "./session-harness.mjs";
 
 test("signed sessions reject tampering and changed password hashes and load the role from the database", async t => {
   const originalSecret = process.env.SESSION_SECRET;
@@ -9,6 +10,7 @@ test("signed sessions reject tampering and changed password hashes and load the 
   const cookies = new Map();
   const user = { id: 1n, name: "Test actor", role: "SALES", password_hash: "test-password-hash" };
   const auth = loadTs("src/lib/auth.ts", {
+    "@/lib/session-store": sessionHarness(user).store,
     "next/headers": { async cookies() { return { get: name => cookies.has(name) ? { value: cookies.get(name) } : undefined, set: (name, value) => cookies.set(name, value), delete: name => cookies.delete(name) }; } },
     "next/navigation": { redirect() { throw new Error("Redirected"); } },
     "@/lib/prisma": { prisma: { users: { async findUnique() { return user; } } } },
@@ -18,7 +20,7 @@ test("signed sessions reject tampering and changed password hashes and load the 
   const token = cookies.get("nexora_session");
   assert.equal((await auth.getCurrentUser()).role, "SALES");
   cookies.delete("nexora_session"); cookies.set("erp_session", token);
-  assert.equal((await auth.getCurrentUser()).role, "SALES");
+  assert.equal(await auth.getCurrentUser(), null);
   await auth.createSession(user.id, user.password_hash);
   assert.equal(cookies.has("erp_session"), false);
   await assert.rejects(auth.requireUser("inventory", true));
@@ -71,6 +73,7 @@ test("guest sessions are signed, expire, and cannot authorize any business write
 test("guest sign-in requires the request origin and password changes reject guests before database access", async () => {
   let sessions = 0;
   const guestRoute = loadTs("src/app/api/auth/guest/route.ts", {
+    "@/lib/rate-limit": { async limitRequest() {}, RateLimitError: class extends Error {} },
     "@/lib/auth": { async createGuestSession() { sessions++; } },
   });
   const blocked = await guestRoute.POST(new Request("http://localhost:3000/api/auth/guest", { method: "POST", headers: { Origin: "https://other.example" } }));
@@ -78,6 +81,7 @@ test("guest sign-in requires the request origin and password changes reject gues
   const allowed = await guestRoute.POST(new Request("http://localhost:3000/api/auth/guest", { method: "POST", headers: { Origin: "http://localhost:3000" } }));
   assert.equal(allowed.status, 200); assert.equal(sessions, 1);
   const passwordRoute = loadTs("src/app/api/auth/password/route.ts", {
+    "@/lib/rate-limit": { async limitRequest() {}, RateLimitError: class extends Error {} },
     "@/lib/auth": { async getCurrentUser() { return { id: 0n, name: "Guest", role: "GUEST" }; } },
     "@/lib/prisma": { prisma: {} },
   });

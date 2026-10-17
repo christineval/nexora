@@ -6,12 +6,12 @@ const prisma = new PrismaClient();
 const rollback = new Error("Intentional test rollback");
 try {
   await prisma.$transaction(async tx => {
-    const actor = await tx.users.findFirst({ where: { role: "ADMIN" }, select: { id: true } });
+    const actor = await tx.users.findFirst({ where: { role: "ADMIN" }, select: { id: true, name: true, role: true } });
     assert.ok(actor, "An existing administrator is required for audit references.");
     const product = await tx.products.create({ data: { sku: "TEST-" + randomUUID(), name: "Rollback test product", selling_price: "0.10", unit_cost: "0.05", stock_qty: 10 } });
     const customer = await tx.customers.create({ data: { name: "Rollback test customer" } });
     const supplier = await tx.suppliers.create({ data: { name: "Rollback test supplier" } });
-    const boundary = { async $transaction(operation) {
+    const boundary = { orders: tx.orders, purchase_orders: tx.purchase_orders, async $transaction(operation) {
       await tx.$executeRawUnsafe("SAVEPOINT erp_workflow_test");
       try { const result = await operation(tx); await tx.$executeRawUnsafe("RELEASE SAVEPOINT erp_workflow_test"); return result; }
       catch (error) { await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT erp_workflow_test"); await tx.$executeRawUnsafe("RELEASE SAVEPOINT erp_workflow_test"); throw error; }
@@ -34,35 +34,39 @@ try {
     assert.equal(Object.hasOwn(newUser, "password_hash"), false);
     await assert.rejects(users.saveUser({ name: "Test admin", email: "admin@test.invalid", role: "SALES" }, actor.id, actor.id.toString()));
     const input = { partyId: customer.id.toString(), date: "2026-10-10", items: [{ productId: product.id.toString(), quantity: 3 }] };
-    const sale = await service.createTransaction("sales", input, actor.id);
+    const sale = await service.createTransaction("sales", input, actor);
+    const otherActor = { id: savedUser.id, name: savedUser.name, role: savedUser.role };
+    assert.equal((await service.listTransactions("sales", otherActor)).some(row => row.id === sale.id), false);
+    await assert.rejects(service.editTransaction("sales", sale.id, input, otherActor), error => error.status === 404);
+    for (const action of ["confirm", "complete", "cancel"]) await assert.rejects(service.transitionTransaction("sales", sale.id, action, otherActor), error => error.status === 404);
     assert.equal((await tx.orders.findUnique({ where: { id: BigInt(sale.id) } })).total_amount.toFixed(2), "0.30");
-    await service.editTransaction("sales", sale.id, { ...input, items: [{ productId: product.id.toString(), quantity: 2 }] });
-    await service.transitionTransaction("sales", sale.id, "confirm", actor.id);
-    await assert.rejects(service.editTransaction("sales", sale.id, input));
+    await service.editTransaction("sales", sale.id, { ...input, items: [{ productId: product.id.toString(), quantity: 2 }] }, actor);
+    await service.transitionTransaction("sales", sale.id, "confirm", actor);
+    await assert.rejects(service.editTransaction("sales", sale.id, input, actor));
     const orderCount = await tx.orders.count();
     const itemCount = await tx.order_items.count();
-    await assert.rejects(service.createTransaction("sales", { ...input, items: [{ productId: product.id.toString(), quantity: 100 }] }, actor.id), /Insufficient stock/);
+    await assert.rejects(service.createTransaction("sales", { ...input, items: [{ productId: product.id.toString(), quantity: 100 }] }, actor), /Insufficient stock/);
     assert.equal(await tx.orders.count(), orderCount);
     assert.equal(await tx.order_items.count(), itemCount);
     // This pending order fits now, but the first sale will reduce available stock.
-    const failed = await service.createTransaction("sales", { ...input, items: [{ productId: product.id.toString(), quantity: 9 }] }, actor.id);
-    await service.transitionTransaction("sales", sale.id, "complete", actor.id);
+    const failed = await service.createTransaction("sales", { ...input, items: [{ productId: product.id.toString(), quantity: 9 }] }, actor);
+    await service.transitionTransaction("sales", sale.id, "complete", actor);
     assert.equal((await tx.products.findUnique({ where: { id: product.id } })).stock_qty, 8);
     const movement = await tx.inventory_movements.findFirst({ where: { reference_id: BigInt(sale.id), reference_type: "ORDER" } });
     assert.equal(movement.type, "SALE"); assert.equal(movement.quantity, 2);
     const entries = await tx.ledger_entries.findMany({ where: { reference_id: BigInt(sale.id), reference_type: "ORDER" } });
     assert.equal(entries.length, 2); assert.ok(entries[0].amount.equals(entries[1].amount));
-    await assert.rejects(service.transitionTransaction("sales", sale.id, "complete", actor.id));
-    await service.transitionTransaction("sales", failed.id, "confirm", actor.id);
-    await assert.rejects(service.transitionTransaction("sales", failed.id, "complete", actor.id));
+    await assert.rejects(service.transitionTransaction("sales", sale.id, "complete", actor));
+    await service.transitionTransaction("sales", failed.id, "confirm", actor);
+    await assert.rejects(service.transitionTransaction("sales", failed.id, "complete", actor));
     assert.equal((await tx.orders.findUnique({ where: { id: BigInt(failed.id) } })).status, "CONFIRMED");
     assert.equal(await tx.inventory_movements.count({ where: { reference_id: BigInt(failed.id), reference_type: "ORDER" } }), 0);
     assert.equal(await tx.ledger_entries.count({ where: { reference_id: BigInt(failed.id), reference_type: "ORDER" } }), 0);
-    const purchase = await service.createTransaction("purchasing", { ...input, partyId: supplier.id.toString() }, actor.id);
-    await service.transitionTransaction("purchasing", purchase.id, "confirm", actor.id);
-    await service.transitionTransaction("purchasing", purchase.id, "complete", actor.id);
+    const purchase = await service.createTransaction("purchasing", { ...input, partyId: supplier.id.toString() }, actor);
+    await service.transitionTransaction("purchasing", purchase.id, "confirm", actor);
+    await service.transitionTransaction("purchasing", purchase.id, "complete", actor);
     assert.equal((await tx.products.findUnique({ where: { id: product.id } })).stock_qty, 11);
-    await assert.rejects(service.transitionTransaction("purchasing", purchase.id, "complete", actor.id));
+    await assert.rejects(service.transitionTransaction("purchasing", purchase.id, "complete", actor));
     const adjust = loadTs("src/services/adjustment.service.ts", { "@/lib/prisma": { prisma: boundary } });
     await adjust.adjustStock({ productId: product.id.toString(), type: "ADJUSTMENT_OUT", quantity: 1 }, actor.id);
     await assert.rejects(adjust.adjustStock({ productId: product.id.toString(), type: "ADJUSTMENT_OUT", quantity: 100 }, actor.id));

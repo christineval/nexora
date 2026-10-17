@@ -11,6 +11,7 @@ import { useNotifications } from "@/components/ui/SnackbarProvider";
 import useMutation from "@/components/ui/use-mutation";
 import { control, iconButton, primaryButton } from "@/components/ui/feature-styles";
 import type { ContactRow } from "@/types/features";
+import { numericInputProps } from "@/lib/numeric-input";
 
 export default function ContactManager({ kind, rows, initialId, canEdit = true }: { kind: "customers" | "suppliers"; rows: ContactRow[]; initialId?: string; canEdit?: boolean }) {
   const singular = kind === "customers" ? "Customer" : "Supplier";
@@ -40,7 +41,7 @@ export default function ContactManager({ kind, rows, initialId, canEdit = true }
         <label className="grid gap-1.5 text-sm">Name *<input name="name" className={control} defaultValue={row?.name} maxLength={150} required /></label>
         {kind === "suppliers" && <label className="grid gap-1.5 text-sm">Contact person<input name="contactPerson" className={control} defaultValue={row?.contactPerson ?? ""} maxLength={150} /></label>}
         <label className="grid gap-1.5 text-sm">Email<input type="email" name="email" className={control} defaultValue={row?.email ?? ""} maxLength={255} /></label>
-        <label className="grid gap-1.5 text-sm">Phone<input name="phone" className={control} defaultValue={row?.phone ?? ""} maxLength={30} /></label>
+        <label className="grid gap-1.5 text-sm">Phone<input {...(kind === "customers" ? numericInputProps() : {})} type={kind === "customers" ? "tel" : "text"} pattern={kind === "customers" ? "[0-9]*" : undefined} onChange={kind === "customers" ? event => { event.currentTarget.value = event.currentTarget.value.replace(/\D/g, ""); } : undefined} name="phone" className={control} defaultValue={row?.phone ?? ""} maxLength={30} /></label>
         <label className="grid gap-1.5 text-sm">Status<select name="status" className={control} defaultValue={row?.status ?? "ACTIVE"}><option>ACTIVE</option><option>INACTIVE</option></select></label>
         <label className="grid gap-1.5 text-sm sm:col-span-2">Address<textarea name="address" className={control + " h-20! py-2"} defaultValue={row?.address ?? ""} maxLength={2000} /></label>
       </fieldset><div className="flex justify-end"><button type="submit" disabled={mutation.saving} className={primaryButton}>{mutation.saving ? "Saving..." : "Save " + singular.toLowerCase()}</button></div></form>}

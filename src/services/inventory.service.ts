@@ -16,7 +16,12 @@ export async function listProducts(): Promise<ProductRow[]> {
 }
 
 
-export async function getProduct(id: string) { return (await listProducts()).find(row => row.productId === id) ?? null; }
+export async function getProduct(id: string): Promise<ProductRow | null> {
+  const product = await prisma.products.findUnique({ where: { id: BigInt(idSchema.parse(id)) } });
+  if (!product) return null;
+  return { productId: product.id.toString(), sku: product.sku, name: product.name, size: product.size,
+    stockQty: product.stock_qty, unitCost: product.unit_cost.toNumber(), sellingPrice: product.selling_price.toNumber(), status: product.status };
+}
 
 
 export async function listInventoryMovements(): Promise<InventoryMovementRow[]> {
@@ -58,11 +63,8 @@ export async function getNextProductSku(): Promise<string> {
 export async function createProduct(data: CreateProductInput){
   return prisma.$transaction(async (tx) => {
     const result = await tx.$queryRaw<Array<{sku: string}>>`
-    SELECT 'ERP-' || LPAD(
-      nextval('public.product_sku_seq'::regclass)::text,
-      4,
-      '0'
-    ) AS sku`;
+    SELECT 'ERP-' || LPAD(value, GREATEST(4, LENGTH(value)), '0') AS sku
+    FROM (SELECT nextval('public.product_sku_seq'::regclass)::text AS value) generated`;
     
     const sku = result[0].sku;
 

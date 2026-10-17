@@ -1,5 +1,5 @@
-import { api, checkOrigin } from "@/lib/api";
+import { api, checkOrigin, readJson } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { listContacts, saveContact } from "@/services/contact.service";
-export async function GET() { return api(async () => { await requireUser("customers"); return listContacts("customers"); }); }
-export async function POST(request: Request) { return api(async () => { checkOrigin(request); await requireUser("customers", true); return saveContact("customers", await request.json()); }, 201); }
+import { listContacts } from "@/server/data/erp-data";
+export async function GET(request: Request) { return api(request, async () => { const user = await requireUser("customers"); return listContacts(user, "customers"); }); }
+export async function POST(request: Request) { return api(request, async () => { checkOrigin(request); await requireUser("customers", true); const { saveContact } = await import("@/services/contact.service"); return saveContact("customers", await readJson(request)); }, 201); }

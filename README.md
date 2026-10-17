@@ -32,7 +32,9 @@ The database was introspected from ten existing tables. The `0_init` migration n
 - Products: search, status/stock filters, sorting, pagination, creation, editing, details, and stock history. New products start with zero stock; the existing database sequence assigns their SKU.
 - Customers and suppliers: searchable records, status filters, creation/editing modals, details, and related transaction history. Inactivation retains business records.
 - Sales: one row per order header, item details, pending-order creation/editing, confirmation, completion, and cancellation.
+  The sales form switches between Registered Customers (select an active customer) and Walk-in Customers (enter a name). Saving a walk-in order creates a new active customer and the order in the same transaction; failures retain neither record. Walk-in customers then appear in the customer list and can be selected for future orders. Existing orders open with their linked customer selected; no separate persisted customer-type field is added.
 - Purchasing: pending purchase creation/editing, ordering, receiving, cancellation, and item details.
+  Import Receipt / Invoice reads PNG, JPEG, WebP and PDF documents with Tesseract.js in the browser. Review extracted text, match existing active products, and check quantities, supplier and date before creating a pending purchase. Invoice prices remain reference-only; the server uses stored product costs. No automatic product creation, document retention or stock receipt occurs.
 - Inventory movements: product/type/date filters, details, and authorized adjustments. Stored quantities are positive magnitudes; the movement type determines the signed change displayed.
 - Finance: ledger search, account/type/date filters, filtered debit/credit summaries, details, and CSV export. Existing audit entries remain read-only.
 - Reports: completed sales, received purchases, date filters, trends, top products, details, and CSV exports. Inventory reports show current stock and cost valuation.
@@ -45,6 +47,8 @@ The dashboard shows completed sales and received purchases, stock metrics, and a
 Sales follow `PENDING → CONFIRMED → COMPLETED`; purchases follow `PENDING → ORDERED → RECEIVED`. Pending and confirmed/ordered transactions may be cancelled. Final transactions cannot be repeated or edited. Only pending product lines can be edited, and their prices are recalculated from current product values.
 
 New sales are tax-free (`tax = 0`). Product selling prices determine sales prices; product unit costs determine purchase prices. Prices are saved on transaction items; completion validates those item totals. Browser totals are previews only.
+
+Sales order dates must be today or earlier in Asia/Manila, enforced in the calendar and server validation. Purchase orders may be planned for future dates. Quantity inputs accept digits; product prices also accept a decimal point. Numeric inputs block text, signs, and exponent notation, including pasted text; server schemas enforce ranges and monetary precision.
 
 Sale completion decrements stock, records positive `SALE` movement magnitudes, and posts **Cash DEBIT / Sales Revenue CREDIT**. Purchase receipt increments stock, records `PURCHASE` movements, and posts **Inventory DEBIT / Accounts Payable CREDIT**. Each pair uses the same transaction amount. This is a simplified cash-sales and supplier-credit workflow; payment settlement, returns, COGS, and tax calculation are not implemented.
 
@@ -64,11 +68,11 @@ Inventory report value uses current product unit cost, not a historical inventor
 | FINANCE | Finance, reports, dashboard |
 | GUEST | All modules, read-only |
 
-**View as guest** on the login page opens a built-in Guest identity with a signed, eight-hour session. It requires no password or database user and cannot be assigned through user administration. Guests can browse all modules, records, reports, and user listings, but all business mutations and password changes are denied on the server. Creation routes redirect to their read-only lists. Guest access exposes the workspace's existing data to anyone who uses the login page. No PostgreSQL role constraint or migration changes are needed.
+**View as guest** on the login page opens a built-in Guest identity with a signed, one-hour session. It requires no password or database user and cannot be assigned through user administration. Every guest page, history, report, detail view and read API uses a separate synthetic dataset in `src/server/demo/guest-data.ts`; guest authorization and demo data selectors never load Prisma or connect to PostgreSQL. The shared API rate limiter uses PostgreSQL, including for guest API requests. `src/server/data/erp-data.ts` selects the source from the authenticated server identity. Registered users continue through the live services. Guest records never fall back to database records, including for unknown IDs. Guest pages clearly identify mock data. Business mutations and password changes are denied before database services are loaded, and creation routes redirect to their read-only lists. Guest page rendering requires `SESSION_SECRET` and does not require a database user. Guest API requests require the security migration and a working database for rate limiting. No PostgreSQL role constraint changes are needed.
 
 The header includes the existing browser theme control, a notification bell with an empty-state panel (notification delivery is not implemented), and an account dropdown with logout. Dropdowns support keyboard navigation, Escape, and outside-click dismissal.
 
-Protected pages and API operations enforce permissions on the server. The browser never connects to PostgreSQL. Signed HTTP-only sessions expire after eight hours; registered user roles are loaded from the database for each authorization check; Guest is resolved from the signed session. Changing a password invalidates other sessions. Mutations validate their request origin and inputs. Password hashes and secrets are never returned to the browser.
+Protected pages and API operations enforce permissions on the server. The browser never connects to PostgreSQL. HTTP-only sessions expire after one hour. Registered user sessions use opaque tokens backed by a database registry with at most three active sessions per user; a fourth login evicts the oldest. Registered user roles are loaded from the database for each authorization check; Guest is resolved from its signed cookie. Changing a password invalidates other sessions. Mutations validate their request origin and inputs. Password hashes and secrets are never returned to the browser.
 
 The login limiter is per process (five attempts per email per fifteen minutes). A distributed deployment needs a shared rate limiter. List data currently loads once per page; filtering, sorting, and eight-row pagination run in the browser, following the Products pattern. Large datasets will need server pagination.
 
@@ -86,11 +90,26 @@ npm run test:ui
 
 Unit tests cover validation, permissions, signed sessions, money, filters, stock direction, transitions, and simulated transaction failures. `test:database` uses temporary records inside a transaction that always rolls back; it does not alter existing business records, though PostgreSQL sequence counters can advance.
 
-Browser tests use five-minute signed sessions for existing database users to inspect pages, forms, filters, permissions, and mobile layouts without submitting business changes. They require local `DATABASE_URL`, `SESSION_SECRET`, and existing ADMIN/SALES users. They use installed Edge on Windows, or Playwright Chromium elsewhere (`npx playwright install chromium`). Screenshots are saved under ignored `test-results/`. Run UI tests only against a local development database.
+Browser tests create one-hour registered sessions for existing database users to inspect pages, forms, filters, permissions, and mobile layouts without submitting business changes. They require local `DATABASE_URL`, `SESSION_SECRET`, and existing ADMIN/SALES users. They use installed Edge on Windows, or Playwright Chromium elsewhere (`npx playwright install chromium`). Screenshots are saved under ignored `test-results/`. Run UI tests only against a local development database.
 
-The seed script intentionally inserts nothing. Receipt uploads and unsupported database fields are not fabricated.
+Guest isolation unit tests fail if any guest page, read API or denied mutation imports Prisma or a database service. They also check demo relationships, stock reconciliation, balanced ledger records and completed/received dashboard totals. After building the application (`npm exec next build`), run `npm run test:guest` for a production browser test on port 3301 with an intentionally unreachable database. It covers guest sign-in, every module, histories, unknown IDs, read APIs, mutation denials, search and logout without database test actors.
+
+The seed script intentionally inserts nothing. Unsupported database fields are not fabricated.
+
+## Receipt and invoice OCR
+
+Tesseract.js provides free OCR with no API key or per-document fee. PDF.js renders PDF pages for OCR. Workers, WebAssembly and English language data are served from this app; receipt files never leave the browser. `npm install` prepares these assets in ignored `public/ocr/` through `postinstall`. Run `npm run ocr:prepare` if install scripts were disabled, and include the generated assets when deploying.
+
+Supported limits are 20 MB, 24 megapixels per image/page, 10 PDF pages and 100 product lines per order. The current parser recognizes product-name / quantity / unit-price / line-total rows (quantity may also lead the row). It suggests exact unique product/SKU and supplier matches; unknown or ambiguous products require manual selection. ISO invoice dates can be suggested; other dates need manual entry. OCR is fallible: check the whole invoice, add missed lines, correct quantities, and combine repeated products before saving. Taxes, discounts and invoice totals are not imported into the existing purchase accounting workflow. Uploaded documents are not retained as attachments.
+
+Libraries: [Tesseract.js](https://github.com/naptha/tesseract.js), [PDF.js](https://mozilla.github.io/pdf.js/).
 
 On Windows, a running development server can lock Prisma's query-engine DLL and prevent the generation step in `npm run build`. Stop that server before regenerating the client. If the schema and generated client are already current, `npm exec next build` verifies the application without replacing the locked DLL.
 
 See [architecture](docs/architecture.md) for the service and component boundaries.
 
+
+Session security and deployment requirements are documented in [the deployment security review](docs/deployment-security-review.md). Sessions expire after one hour; each registered user can keep three active sessions, with the oldest evicted by a fourth login. Apply the additive security migration before deploying this version.
+
+
+Sales and purchase order access is restricted to the authenticated creator for non-admin users; admins can access all orders. Module permissions still apply. The database query scope is shared by order lists, details, customer/supplier order histories, order reports and dashboard totals. Edits and status changes enforce ownership inside the transaction and retain creator predicates on updates. Inaccessible IDs return not found. Finance report access also remains creator-scoped; a finance user with no orders sees empty order reports. Guest order records remain synthetic demo data. Shared product, customer, supplier, stock-audit and ledger datasets retain their existing module permissions.

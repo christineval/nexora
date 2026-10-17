@@ -6,6 +6,8 @@
     "@mui/x-internals": "9.9.0"
   },
   "scripts": {
+    "postinstall": "node scripts/prepare-ocr-assets.mjs",
+    "ocr:prepare": "node scripts/prepare-ocr-assets.mjs",
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
@@ -14,6 +16,7 @@
     "test": "node --test tests/*.test.mjs",
     "test:database": "node tests/database-workflows.mjs",
     "test:ui": "playwright test",
+    "test:guest": "playwright test --config playwright.guest.config.mjs",
     "auth:configure": "node scripts/configure-auth.mjs",
     "admin:create": "ts-node --project tsconfig.scripts.json scripts/create-admin.ts",
     "prisma:generate": "prisma generate",
@@ -29,13 +32,16 @@
     "@mui/material": "^9.2.0",
     "@mui/x-data-grid": "^9.9.0",
     "@prisma/client": "5.22.0",
+    "@tesseract.js-data/eng": "^1.0.0",
     "bcryptjs": "^3.0.3",
     "lucide-react": "^1.24.0",
     "next": "^16.2.10",
+    "pdfjs-dist": "^6.4.299",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^3.9.2",
     "server-only": "^0.0.1",
+    "tesseract.js": "^7.0.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {

@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { contactSchema, idSchema } from "@/validations/shared";
 import { supplierSchema } from "@/validations/supplier.schema";
+import { customerSchema } from "@/validations/customer.schema";
 import type { ContactRow } from "@/types/features";
 export type ContactKind = "customers" | "suppliers";
 export async function listContacts(kind: ContactKind): Promise<ContactRow[]> {
@@ -14,7 +15,7 @@ export async function listContacts(kind: ContactKind): Promise<ContactRow[]> {
 }
 export async function saveContact(kind: ContactKind, input: unknown, recordId?: string) {
   const id = recordId ? BigInt(idSchema.parse(recordId)) : undefined;
-  const value = contactSchema.parse(input);
+  const value = kind === "customers" ? customerSchema.parse(input) : contactSchema.parse(input);
   const data = { name: value.name, email: value.email || null, phone: value.phone || null, address: value.address || null, status: value.status, updated_at: new Date() };
   if (kind === "customers") {
     const row = id ? await prisma.customers.update({ where: { id }, data }) : await prisma.customers.create({ data });

@@ -2,7 +2,7 @@
 
 The existing local database is PostgreSQL 18.6. `prisma/migrations/0_init/migration.sql` was exported from its actual public schema, rather than reconstructed from Prisma. It preserves all ten business tables, 23 check constraints, primary/foreign keys, unique constraints, indexes, ten ID sequences, and `product_sku_seq`. It contains no accounts or business records.
 
-The baseline has not been applied or recorded against any database. Creating these files and exporting a backup does not change the source database.
+Supabase is the selected hosted database provider. Follow [the Supabase deployment guide](supabase-deployment.md); its platform-managed schemas require a reviewed ERP-only transfer rather than a blind full-database restore. The local readiness check on 2026-10-16 found `0_init` recorded and the security migration pending. Inspect each target independently before baselining. Creating migration files and exporting backups does not apply them.
 
 ## 1. Back up the source database
 
@@ -57,7 +57,7 @@ npm.cmd exec prisma -- migrate status
 
 The backup includes sequence state, which matters when records already have IDs/SKUs. Never restart the SKU sequence at 1 after a data transfer. Existing users and password hashes are also transferred; review which accounts should have access before publishing.
 
-## Neon: restore your current records from Windows
+## Alternative provider: Neon restore instructions (not the selected Supabase workflow)
 
 Create an empty Neon database on PostgreSQL 18, matching the local major version. In **Connect**, choose that database and role, and disable connection pooling. Use the direct hostname, without `-pooler`. Do not run `migrate deploy` before a full restore.
 

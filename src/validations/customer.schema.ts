@@ -1,1 +1,5 @@
-export { contactSchema as customerSchema } from "./shared";
+import { contactSchema } from "./shared";
+
+export const customerSchema = contactSchema.extend({
+  phone: contactSchema.shape.phone.regex(/^\d*$/, "Customer contact number must contain digits only."),
+});

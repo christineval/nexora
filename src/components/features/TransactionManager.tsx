@@ -9,6 +9,7 @@ import useMutation from "@/components/ui/use-mutation";
 import StatusBadge from "@/components/ui/StatusBadge";
 import TransactionDetails from "./TransactionDetails";
 import TransactionForm from "./TransactionForm";
+import PurchaseImport from "./PurchaseImport";
 import { iconButton, primaryButton, secondaryButton } from "@/components/ui/feature-styles";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type { ContactRow, TransactionRow } from "@/types/features";
@@ -32,7 +33,7 @@ export default function TransactionManager({ kind, rows, parties, products, init
     { field: "total", label: "Total Amount", width: 150, value: row => Number(row.total), render: row => formatCurrency(Number(row.total)) },
     { field: "status", label: "Status", width: 125, value: row => row.status, render: row => <StatusBadge value={row.status} /> },
   ];
-  return <section><FeatureHeading title={title} description={sales ? "Manage and track customer orders" : "Manage supplier purchase orders"}>{canEdit && <button type="button" className={primaryButton} onClick={() => setPanel({ kind: "create" })}><Plus className="size-4" />{sales ? "New Order" : "New Purchase Order"}</button>}</FeatureHeading>
+  return <section><FeatureHeading title={title} description={sales ? "Manage and track customer orders" : "Manage supplier purchase orders"}>{canEdit && <div className="flex flex-wrap gap-2">{!sales && <PurchaseImport parties={parties} products={products} />}<button type="button" className={primaryButton} onClick={() => setPanel({ kind: "create" })}><Plus className="size-4" />{sales ? "New Order" : "New Purchase Order"}</button></div>}</FeatureHeading>
     
     <FeatureTable rows={rows} columns={columns} label={title} statusValue={row => row.status} timestamp={row => row.timestamp} searchText={row => [row.id, row.party, ...row.items.map(item => item.name + " " + item.sku)].join(" ")} actions={row => <><button className={iconButton} type="button" aria-label={"View order " + row.id} onClick={() => open("details", row.id)}><Eye className="size-4" /></button>{canEdit && <button className={iconButton} type="button" aria-label={"Actions for order " + row.id} onClick={() => open("actions", row.id)}><MoreVertical className="size-4" /></button>}</>} />
     <Modal key={panel?.kind + (panel?.id ?? "")} open={!!panel} busy={mutation.saving} wide title={panel?.kind === "edit" ? "Edit pending order" : panel?.kind === "create" ? (sales ? "Create Sales Order" : "Create Purchase Order") : (panel?.kind === "actions" ? "Order actions" : "Order details")} onClose={() => { setPanel(null); setAction(""); }}>
