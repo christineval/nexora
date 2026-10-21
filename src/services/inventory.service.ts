@@ -1,5 +1,7 @@
 import "server-only";
+import { recordAudit } from "@/server/audit";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import type { InventoryMovementRow, ProductRow } from "@/types/views";
 import type { CreateProductInput } from "@/validations/product.schema";
 import { updateProductSchema } from "@/validations/product.schema";
@@ -60,35 +62,39 @@ export async function getNextProductSku(): Promise<string> {
 }
 
 
-export async function createProduct(data: CreateProductInput){
-  return prisma.$transaction(async (tx) => {
-    const result = await tx.$queryRaw<Array<{sku: string}>>`
-    SELECT 'ERP-' || LPAD(value, GREATEST(4, LENGTH(value)), '0') AS sku
-    FROM (SELECT nextval('public.product_sku_seq'::regclass)::text AS value) generated`;
-    
-    const sku = result[0].sku;
-
-    if(!sku) {
-      throw new Error("Failed to generate SKU");
-    }
-
-    return tx.products.create({
-      data: {
-        sku,
-        name: data.name,
-        size: data.size || null,
-        unit_cost: data.unitCost,
-        selling_price: data.sellingPrice,
-        stock_qty: 0,
-        status: "ACTIVE",
-      }
-    })
-  });
+export async function createProduct(data: CreateProductInput, actorId: bigint) {
+  return prisma.$transaction(tx => createProductInTransaction(tx, data, actorId));
 }
 
-export async function updateProduct(recordId: string, input: unknown) {
+export async function createProductInTransaction(tx: Prisma.TransactionClient, data: CreateProductInput, actorId: bigint) {
+  const result = await tx.$queryRaw<Array<{ sku: string }>>`
+    SELECT 'ERP-' || LPAD(value, GREATEST(4, LENGTH(value)), '0') AS sku
+    FROM (SELECT nextval('public.product_sku_seq'::regclass)::text AS value) generated`;
+  const sku = result[0]?.sku;
+  if (!sku) throw new Error("Failed to generate SKU");
+
+  const product = await tx.products.create({
+    data: {
+      sku,
+      name: data.name,
+      size: data.size || null,
+      unit_cost: data.unitCost,
+      selling_price: data.sellingPrice,
+      stock_qty: 0,
+      status: "ACTIVE",
+    },
+  });
+  await recordAudit(tx, actorId, { action: "PRODUCT_CREATED", entity: "PRODUCT", entityId: product.id, after: product });
+  return product;
+}
+
+export async function updateProduct(recordId: string, input: unknown, actorId: bigint) {
   const id = BigInt(idSchema.parse(recordId));
   const data = updateProductSchema.parse(input);
-  const row = await prisma.products.update({ where: { id }, data: { name: data.name, size: data.size || null, unit_cost: data.unitCost, selling_price: data.sellingPrice, status: data.status, updated_at: new Date() } });
-  return { id: row.id.toString() };
+  return prisma.$transaction(async tx => {
+    const before = await tx.products.findUnique({ where: { id } });
+    const row = await tx.products.update({ where: { id }, data: { name: data.name, size: data.size || null, unit_cost: data.unitCost, selling_price: data.sellingPrice, status: data.status, updated_at: new Date() } });
+    await recordAudit(tx, actorId, { action: "PRODUCT_UPDATED", entity: "PRODUCT", entityId: id, before, after: row });
+    return { id: row.id.toString() };
+  }, { isolationLevel: "Serializable" });
 }

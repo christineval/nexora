@@ -33,6 +33,7 @@ function harness(kind) {
   };
   const items = { async deleteMany() { writes.push({ model: "items" }); }, async createMany() { writes.push({ model: "items" }); } };
   const tx = {
+    audit_logs: { async create() {} },
     orders: model, purchase_orders: model, order_items: items, purchase_items: items,
     customers: { async findUnique() { return { id: 1n, status: "ACTIVE" }; }, async create() { assert.fail("Unauthorized walk-in creation"); } },
     suppliers: { async findUnique() { return { id: 1n, status: "ACTIVE" }; } },
@@ -107,6 +108,7 @@ for (const kind of ["sales", "purchasing"]) {
 test("dashboard scopes completed totals and recent order queries to the session creator", async () => {
   const queries = [];
   const tx = {
+    audit_logs: { async create() {} },
     products: { async count(query) { assert.equal(query?.where?.created_by, undefined); return 0; } },
     orders: { async findMany(query) { queries.push(query); return []; } },
     purchase_orders: { async findMany(query) { queries.push(query); return []; } },

@@ -51,13 +51,21 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 export async function requireUser(module: Module, write = false) {
   const user = await getCurrentUser();
   if (!user) throw new BusinessError("Please sign in to continue.", 401);
-  if (!(write ? canWrite(user.role, module) : canAccess(user.role, module))) throw new BusinessError("Your role does not allow this operation.", 403);
+  if (!(write ? canWrite(user.role, module) : canAccess(user.role, module))) {
+    if (user.role !== "GUEST") {
+      await (await import("@/server/audit")).recordSecurityEvent(user, { action: "ACCESS_DENIED", entity: "ACCESS", outcome: "DENIED", after: { module, operation: write ? "WRITE" : "READ" } });
+    }
+    throw new BusinessError("Your role does not allow this operation.", 403);
+  }
   return user;
 }
 export async function requirePageAccess(module: Module, write = false) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (!canAccess(user.role, module)) redirect("/dashboard");
+  if (!canAccess(user.role, module)) {
+    if (user.role !== "GUEST") await (await import("@/server/audit")).recordSecurityEvent(user, { action: "ACCESS_DENIED", entity: "ACCESS", outcome: "DENIED", after: { module, operation: "READ" } });
+    redirect("/dashboard");
+  }
   if (write && !canWrite(user.role, module)) redirect(module === "sales" ? "/sales" : module === "purchasing" ? "/purchasing" : "/dashboard");
   return user;
 }

@@ -18,16 +18,17 @@ test("customer contact numbers preserve leading zeros, remain optional, and reje
 test("customer create and edit reject invalid contact numbers before writes and save digits as strings", async () => {
   const writes = [];
   const customers = {
+    async findUnique() { return { id: 1n, ...input }; },
     async create({ data }) { writes.push(data); return { id: 1n }; },
     async update({ data }) { writes.push(data); return { id: 1n }; },
   };
-  const { saveContact } = loadTs("src/services/contact.service.ts", { "@/lib/prisma": { prisma: { customers } } });
+  const { saveContact } = loadTs("src/services/contact.service.ts", { "@/server/audit": { async recordAudit() {} }, "@/lib/prisma": { prisma: { async $transaction(operation) { return operation({ customers }); } } } });
   for (const recordId of [undefined, "1"]) {
-    await assert.rejects(saveContact("customers", { ...input, phone: "0912abc" }, recordId), /digits only/);
+    await assert.rejects(saveContact("customers", { ...input, phone: "0912abc" }, 1n, recordId), /digits only/);
     assert.equal(writes.length, recordId ? 1 : 0);
-    await saveContact("customers", input, recordId);
+    await saveContact("customers", input, 1n, recordId);
     assert.equal(writes.at(-1).phone, "09123456789");
   }
-  await saveContact("customers", { ...input, phone: "" });
+  await saveContact("customers", { ...input, phone: "" }, 1n);
   assert.equal(writes.at(-1).phone, null);
 });

@@ -12,6 +12,7 @@ test("signed sessions reject tampering and changed password hashes and load the 
   const auth = loadTs("src/lib/auth.ts", {
     "@/lib/session-store": sessionHarness(user).store,
     "next/headers": { async cookies() { return { get: name => cookies.has(name) ? { value: cookies.get(name) } : undefined, set: (name, value) => cookies.set(name, value), delete: name => cookies.delete(name) }; } },
+    "@/server/audit": { async recordSecurityEvent() {} },
     "next/navigation": { redirect() { throw new Error("Redirected"); } },
     "@/lib/prisma": { prisma: { users: { async findUnique() { return user; } } } },
   });
@@ -48,6 +49,7 @@ test("guest sessions are signed, expire, and cannot authorize any business write
   let databaseReads = 0;
   const auth = loadTs("src/lib/auth.ts", {
     "next/headers": { async cookies() { return { get: name => jar.has(name) ? { value: jar.get(name) } : undefined, set: (name, value) => jar.set(name, value), delete: name => jar.delete(name) }; } },
+    "@/server/audit": { async recordSecurityEvent() {} },
     "next/navigation": { redirect(path) { throw new Error(path); } },
     "@/lib/prisma": { prisma: { users: { async findUnique() { databaseReads++; throw new Error("Guest must not read a database identity"); } } } },
   });

@@ -10,6 +10,7 @@ const endpoints = [
 function harness() {
   let identity = null;
   const mocks = {
+    "@/server/audit": { async recordSecurityEvent() {} },
     "@/lib/rate-limit": { async limitRequest() {}, RateLimitError: class extends Error {} },
     "@/lib/session-store": { async readSession() { return identity; } },
     "next/headers": { async cookies() { return { get() { return { value: "a".repeat(43) }; } }; } },

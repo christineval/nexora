@@ -17,15 +17,15 @@ try {
       catch (error) { await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT erp_workflow_test"); await tx.$executeRawUnsafe("RELEASE SAVEPOINT erp_workflow_test"); throw error; }
     } };
     const service = loadTs("src/services/transaction.service.ts", { "@/lib/prisma": { prisma: boundary } });
-    const contacts = loadTs("src/services/contact.service.ts", { "@/lib/prisma": { prisma: tx } });
+    const contacts = loadTs("src/services/contact.service.ts", { "@/lib/prisma": { prisma: { ...tx, $transaction: boundary.$transaction } } });
     const contactInput = { name: "Rollback contact", email: "", phone: "", address: "", status: "ACTIVE" };
-    const contact = await contacts.saveContact("customers", contactInput);
-    await contacts.saveContact("customers", { ...contactInput, status: "INACTIVE" }, contact.id);
+    const contact = await contacts.saveContact("customers", contactInput, actor.id);
+    await contacts.saveContact("customers", { ...contactInput, status: "INACTIVE" }, actor.id, contact.id);
     assert.equal((await tx.customers.findUnique({ where: { id: BigInt(contact.id) } })).status, "INACTIVE");
-    const vendor = await contacts.saveContact("suppliers", { ...contactInput, contactPerson: "Test contact" });
+    const vendor = await contacts.saveContact("suppliers", { ...contactInput, contactPerson: "Test contact" }, actor.id);
     assert.equal((await tx.suppliers.findUnique({ where: { id: BigInt(vendor.id) } })).contact_person, "Test contact");
-    const inventory = loadTs("src/services/inventory.service.ts", { "@/lib/prisma": { prisma: tx } });
-    await inventory.updateProduct(product.id.toString(), { name: product.name, size: "", unitCost: "0.05", sellingPrice: "0.10", status: "ACTIVE", stockQty: 999 });
+    const inventory = loadTs("src/services/inventory.service.ts", { "@/lib/prisma": { prisma: { ...tx, $transaction: boundary.$transaction } } });
+    await inventory.updateProduct(product.id.toString(), { name: product.name, size: "", unitCost: "0.05", sellingPrice: "0.10", status: "ACTIVE", stockQty: 999 }, actor.id);
     assert.equal((await tx.products.findUnique({ where: { id: product.id } })).stock_qty, 10);
     const users = loadTs("src/services/user.service.ts", { "@/lib/prisma": { prisma: { ...boundary, users: tx.users } } });
     const newUser = await users.saveUser({ name: "Rollback user", email: randomUUID() + "@test.invalid", role: "SALES", password: "Temporary-test-123!" }, actor.id);
@@ -71,7 +71,19 @@ try {
     await adjust.adjustStock({ productId: product.id.toString(), type: "ADJUSTMENT_OUT", quantity: 1 }, actor.id);
     await assert.rejects(adjust.adjustStock({ productId: product.id.toString(), type: "ADJUSTMENT_OUT", quantity: 100 }, actor.id));
     assert.equal((await tx.products.findUnique({ where: { id: product.id } })).stock_qty, 10);
-    console.log("Database checks passed: contacts, supplier contacts, product edits, password hashing, decimal pricing, pending edit, sales completion, receiving, adjustment, duplicate prevention, and insufficient-stock rollback.");
+    const audit = await tx.audit_logs.findMany({ where: { actor_id: actor.id, entity_type: "ORDER", entity_id: BigInt(sale.id) }, orderBy: { id: "asc" } });
+    assert.deepEqual(audit.map(row => row.action), ["ORDER_CREATED", "ORDER_UPDATED", "ORDER_CONFIRMED", "ORDER_COMPLETED"]);
+    assert.equal(audit[0].actor_role, "ADMIN");
+    assert.equal(audit[1].before.total_amount, "0.3");
+    assert.equal(audit[1].after.total_amount, "0.2");
+    assert.equal(await tx.audit_logs.count({ where: { entity_type: "ORDER", entity_id: BigInt(failed.id), action: "ORDER_COMPLETED" } }), 0);
+    for (const statement of ["UPDATE audit_logs SET action = action WHERE false", "DELETE FROM audit_logs WHERE false"]) {
+      await tx.$executeRawUnsafe("SAVEPOINT audit_immutability_test");
+      await assert.rejects(tx.$executeRawUnsafe(statement), /Audit logs are append-only/);
+      await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT audit_immutability_test");
+      await tx.$executeRawUnsafe("RELEASE SAVEPOINT audit_immutability_test");
+    }
+    console.log("Database checks passed: contacts, supplier contacts, product edits, password hashing, decimal pricing, pending edit, sales completion, receiving, adjustment, duplicate prevention, insufficient-stock rollback, audit event snapshots, and append-only audit protection.");
     throw rollback;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 } catch (error) {

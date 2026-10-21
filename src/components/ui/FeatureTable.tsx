@@ -1,4 +1,5 @@
 "use client";
+import FormLabel from "@/components/ui/FormLabel";
 import { useId, useState } from "react";
 import Pagination from "./Pagination";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
@@ -33,9 +34,9 @@ export default function FeatureTable<T extends { id: string }>({ rows, columns, 
   ];
   return <>
     <div className="mb-4 flex flex-wrap items-end gap-3">
-      <label htmlFor={id + "search"} className="grid min-w-48 flex-1 gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400">Search {label.toLowerCase()}<span className="relative"><Search aria-hidden="true" className="pointer-events-none absolute top-3 left-3 size-4" /><input id={id + "search"} type="search" value={filters.query} onChange={event => update("query", event.target.value)} placeholder="Search records..." className={control + " pl-9"} /></span></label>
-      {statuses.length > 0 && <label className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400">Status / type<select className={control + " min-w-36"} value={filters.status} onChange={event => update("status", event.target.value)}><option value="">All</option>{statuses.map(status => <option key={status}>{status}</option>)}</select></label>}
-      {timestamp && <><label className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400">From (PH time)<input type="date" className={control} value={filters.from} max={filters.to || undefined} onChange={event => update("from", event.target.value)} /></label><label className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400">To (PH time)<input type="date" className={control} value={filters.to} min={filters.from || undefined} onChange={event => update("to", event.target.value)} /></label></>}
+      <FormLabel label={"Search " + (label.toLowerCase())} htmlFor={id + "search"} className="grid min-w-48 flex-1 gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400"><span className="relative"><Search aria-hidden="true" className="pointer-events-none absolute top-3 left-3 size-4" /><input id={id + "search"} type="search" value={filters.query} onChange={event => update("query", event.target.value)} placeholder="Search records..." className={control + " pl-9"} /></span></FormLabel>
+      {statuses.length > 0 && <FormLabel label="Status / type" className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400"><select className={control + " min-w-36"} value={filters.status} onChange={event => update("status", event.target.value)}><option value="">All</option>{statuses.map(status => <option key={status}>{status}</option>)}</select></FormLabel>}
+      {timestamp && <><FormLabel label="From (PH time)" className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400"><input type="date" className={control} value={filters.from} max={filters.to || undefined} onChange={event => update("from", event.target.value)} /></FormLabel><FormLabel label="To (PH time)" className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400"><input type="date" className={control} value={filters.to} min={filters.from || undefined} onChange={event => update("to", event.target.value)} /></FormLabel></>}
       {exportable && <button className={secondaryButton} onClick={download} type="button"><Download className="size-4" aria-hidden="true" />Export CSV</button>}
     </div>
     {filters.from && filters.to && filters.from > filters.to && <p role="alert" className="mb-3 text-sm text-rose-600">Choose an end date on or after the start date.</p>}

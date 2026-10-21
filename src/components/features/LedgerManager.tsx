@@ -1,4 +1,5 @@
 "use client";
+import FormLabel from "@/components/ui/FormLabel";
 import { useState } from "react";
 import { Eye } from "lucide-react";
 import FeatureHeading from "@/components/ui/FeatureHeading";
@@ -22,7 +23,7 @@ export default function LedgerManager({ rows }: { rows: LedgerRow[] }) {
     { field: "reference", label: "Reference", width: 190, value: row => row.reference },
     { field: "description", label: "Description", width: 260, value: row => row.description ?? "—" },
   ];
-  return <section><FeatureHeading title="Ledger Entries" description="View financial transactions and their business references" /><label className="mb-4 grid max-w-xs gap-1.5 text-xs text-slate-500 dark:text-neutral-400">Account<select value={account} onChange={event => setAccount(event.target.value)} className={control}><option value="">All accounts</option>{[...new Set(rows.map(row => row.account))].sort().map(value => <option key={value}>{value}</option>)}</select></label>
+  return <section><FeatureHeading title="Ledger Entries" description="View financial transactions and their business references" /><FormLabel label="Account" className="mb-4 grid max-w-xs gap-1.5 text-xs text-slate-500 dark:text-neutral-400"><select value={account} onChange={event => setAccount(event.target.value)} className={control}><option value="">All accounts</option>{[...new Set(rows.map(row => row.account))].sort().map(value => <option key={value}>{value}</option>)}</select></FormLabel>
     <FeatureTable key={account} rows={rows.filter(row => !account || row.account === account)} columns={columns} label="Ledger entries" searchText={row => [row.account, row.reference, row.description, row.createdBy].join(" ")} statusValue={row => row.type} timestamp={row => row.timestamp} exportable actions={row => <button type="button" className={iconButton} aria-label={"View ledger entry " + row.id} onClick={() => setSelected(row)}><Eye className="size-4" /></button>} onFiltered={filtered => {
       const debits = sumMoney(filtered.filter(row => row.type === "DEBIT").map(row => row.amount)); const credits = sumMoney(filtered.filter(row => row.type === "CREDIT").map(row => row.amount));
       return <MetricCards metrics={[{ label: "Total Debits", value: formatCurrency(Number(debits)) }, { label: "Total Credits", value: formatCurrency(Number(credits)) }, { label: "Debit less credit", value: formatCurrency(Number(fromMinorUnits(toMinorUnits(debits) - toMinorUnits(credits)))), note: "For the current filters; this is not a cash balance." }]} />;

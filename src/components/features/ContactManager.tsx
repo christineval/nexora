@@ -1,4 +1,5 @@
 "use client";
+import FormLabel from "@/components/ui/FormLabel";
 import Link from "next/link";
 import { useState } from "react";
 import { Eye, Pencil, Plus } from "lucide-react";
@@ -38,12 +39,12 @@ export default function ContactManager({ kind, rows, initialId, canEdit = true }
         event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget));
         void mutation.submit("/api/" + kind + (row ? "/" + row.id : ""), row ? "PATCH" : "POST", data, () => { setPanel(null); notify(singular + " saved successfully."); });
       }}><fieldset disabled={mutation.saving} className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-1.5 text-sm">Name *<input name="name" className={control} defaultValue={row?.name} maxLength={150} required /></label>
-        {kind === "suppliers" && <label className="grid gap-1.5 text-sm">Contact person<input name="contactPerson" className={control} defaultValue={row?.contactPerson ?? ""} maxLength={150} /></label>}
-        <label className="grid gap-1.5 text-sm">Email<input type="email" name="email" className={control} defaultValue={row?.email ?? ""} maxLength={255} /></label>
-        <label className="grid gap-1.5 text-sm">Phone<input {...(kind === "customers" ? numericInputProps() : {})} type={kind === "customers" ? "tel" : "text"} pattern={kind === "customers" ? "[0-9]*" : undefined} onChange={kind === "customers" ? event => { event.currentTarget.value = event.currentTarget.value.replace(/\D/g, ""); } : undefined} name="phone" className={control} defaultValue={row?.phone ?? ""} maxLength={30} /></label>
-        <label className="grid gap-1.5 text-sm">Status<select name="status" className={control} defaultValue={row?.status ?? "ACTIVE"}><option>ACTIVE</option><option>INACTIVE</option></select></label>
-        <label className="grid gap-1.5 text-sm sm:col-span-2">Address<textarea name="address" className={control + " h-20! py-2"} defaultValue={row?.address ?? ""} maxLength={2000} /></label>
+        <FormLabel label="Name" required className="grid gap-1.5 text-sm"><input name="name" className={control} defaultValue={row?.name} maxLength={150} required /></FormLabel>
+        {kind === "suppliers" && <FormLabel label="Contact person" className="grid gap-1.5 text-sm"><input name="contactPerson" className={control} defaultValue={row?.contactPerson ?? ""} maxLength={150} /></FormLabel>}
+        <FormLabel label="Email" className="grid gap-1.5 text-sm"><input type="email" name="email" className={control} defaultValue={row?.email ?? ""} maxLength={255} /></FormLabel>
+        <FormLabel label="Phone" className="grid gap-1.5 text-sm"><input {...(kind === "customers" ? numericInputProps() : {})} type={kind === "customers" ? "tel" : "text"} pattern={kind === "customers" ? "[0-9]*" : undefined} onChange={kind === "customers" ? event => { event.currentTarget.value = event.currentTarget.value.replace(/\D/g, ""); } : undefined} name="phone" className={control} defaultValue={row?.phone ?? ""} maxLength={30} /></FormLabel>
+        <FormLabel label="Status" className="grid gap-1.5 text-sm"><select name="status" className={control} defaultValue={row?.status ?? "ACTIVE"}><option>ACTIVE</option><option>INACTIVE</option></select></FormLabel>
+        <FormLabel label="Address" className="grid gap-1.5 text-sm sm:col-span-2"><textarea name="address" className={control + " h-20! py-2"} defaultValue={row?.address ?? ""} maxLength={2000} /></FormLabel>
       </fieldset><div className="flex justify-end"><button type="submit" disabled={mutation.saving} className={primaryButton}>{mutation.saving ? "Saving..." : "Save " + singular.toLowerCase()}</button></div></form>}
     </Modal>
   </section>;

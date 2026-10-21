@@ -2,6 +2,7 @@ import "server-only";
 import { randomBytes, createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { BusinessError } from "@/lib/errors";
+import { recordAudit } from "@/server/audit";
 
 export const SESSION_SECONDS = 60 * 60;
 export function sessionDigest(token: string) { return createHash("sha256").update(token).digest("hex"); }
@@ -16,7 +17,9 @@ export async function issueSession(userId: bigint, passwordHash: string) {
     await tx.user_sessions.deleteMany({ where: { user_id: userId, OR: [{ expires_at: { lte: now } }, { password_fingerprint: { not: sessionDigest(passwordHash) } }] } });
     const active = await tx.user_sessions.findMany({ where: { user_id: userId }, orderBy: [{ created_at: "desc" }, { token_hash: "desc" }], select: { token_hash: true } });
     if (active.length >= 3) await tx.user_sessions.deleteMany({ where: { token_hash: { in: active.slice(2).map(row => row.token_hash) } } });
+    if (active.length >= 3) await recordAudit(tx, userId, { action: "SESSION_REVOKED", entity: "AUTH", entityId: userId, after: { reason: "Active session limit", session_count: active.length - 2 } });
     await tx.user_sessions.create({ data: { token_hash: sessionDigest(token), user_id: userId, password_fingerprint: sessionDigest(passwordHash), created_at: now, expires_at: new Date(now.getTime() + SESSION_SECONDS * 1000) } });
+    await recordAudit(tx, userId, { action: "LOGIN_SUCCEEDED", entity: "AUTH", entityId: userId });
   });
   return token;
 }
@@ -29,5 +32,11 @@ export async function readSession(token: string) {
 }
 
 export async function revokeSession(token: string) {
-  if (/^[A-Za-z0-9_-]{43}$/.test(token)) await prisma.user_sessions.deleteMany({ where: { token_hash: sessionDigest(token) } });
+  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return;
+  await prisma.$transaction(async tx => {
+    const session = await tx.user_sessions.findUnique({ where: { token_hash: sessionDigest(token) } });
+    if (!session) return;
+    const deleted = await tx.user_sessions.deleteMany({ where: { token_hash: session.token_hash } });
+    if (deleted.count) await recordAudit(tx, session.user_id, { action: "LOGOUT", entity: "AUTH", entityId: session.user_id });
+  });
 }

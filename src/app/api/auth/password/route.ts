@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import { userSchema } from "@/validations/user.schema";
 import { BusinessError } from "@/lib/errors";
 import { consumeLimit } from "@/lib/rate-limit";
+import { recordAudit } from "@/server/audit";
 export async function POST(request: Request) {
   return api(request, async () => {
     checkOrigin(request);
@@ -16,8 +17,13 @@ export async function POST(request: Request) {
     const user = await prisma.users.findUnique({ where: { id: current.id } });
     if (!user || !await verifyPassword(data.currentPassword, user.password_hash)) throw new BusinessError("Current password is incorrect.", 400);
     const digest = await hashPassword(data.password);
-    const updated = await prisma.users.updateMany({ where: { id: user.id, password_hash: user.password_hash }, data: { password_hash: digest, updated_at: new Date() } });
-    if (updated.count !== 1) throw new BusinessError("Your password changed. Sign in again.", 409);
+    await prisma.$transaction(async tx => {
+      const updated = await tx.users.updateMany({ where: { id: user.id, password_hash: user.password_hash }, data: { password_hash: digest, updated_at: new Date() } });
+      if (updated.count !== 1) throw new BusinessError("Your password changed. Sign in again.", 409);
+      const revoked = await tx.user_sessions.deleteMany({ where: { user_id: user.id } });
+      await recordAudit(tx, current, { action: "PASSWORD_CHANGED", entity: "USER", entityId: user.id });
+      await recordAudit(tx, current, { action: "SESSION_REVOKED", entity: "AUTH", entityId: user.id, after: { reason: "Password changed", session_count: revoked.count } });
+    });
     await createSession(user.id, digest);
     return { message: "Password updated." };
   });

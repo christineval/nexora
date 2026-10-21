@@ -3,6 +3,33 @@ import { sessionFor } from "./test-session.mjs";
 
 test.beforeEach(async ({ context }) => { await context.addCookies([await sessionFor("ADMIN")]); });
 
+test("audit log shows admin history and filters while employees cannot access it", async ({ page, context }) => {
+  await page.goto("/settings/audit");
+  await expect(page.getByRole("heading", { name: "Audit Log", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Audit Log", exact: true })).toBeVisible();
+  await page.getByRole("textbox", { name: "Action", exact: true }).fill("LOGIN_SUCCEEDED");
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await expect(page).toHaveURL(/action=LOGIN_SUCCEEDED/);
+  await expect(page.getByRole("cell", { name: "LOGIN SUCCEEDED", exact: true }).first()).toBeVisible();
+  await page.screenshot({ path: "test-results/audit-log-desktop.png", fullPage: true, caret: "initial" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("heading", { name: "Audit Log", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: "test-results/audit-log-mobile.png", fullPage: true, caret: "initial" });
+  const response = await context.request.get("/api/audit?action=LOGIN_SUCCEEDED");
+  expect(response.status()).toBe(200);
+  const data = await response.json();
+  expect(data.rows.length).toBeGreaterThan(0);
+  expect(data.rows.every(row => row.action === "LOGIN_SUCCEEDED")).toBe(true);
+  expect(JSON.stringify(data)).not.toMatch(/password_hash|token_hash|password_fingerprint/);
+  await context.clearCookies();
+  await context.addCookies([await sessionFor("SALES")]);
+  expect((await context.request.get("/api/audit?role=ADMIN&actorId=1")).status()).toBe(403);
+  await page.goto("/settings/audit");
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("link", { name: "Audit Log", exact: true })).toHaveCount(0);
+});
+
 test("customer contact numbers accept digits only in create and edit forms", async ({ page, context }) => {
   await page.goto("/customers");
   for (const edit of [false, true]) {
@@ -80,20 +107,20 @@ test("purchase import reads images and PDFs locally and reviews many products wi
     await dialog.getByRole("button", { name: "Read with OCR", exact: true }).click();
     await expect(dialog.getByLabel("Extracted invoice text", { exact: true })).toHaveValue(/Keyboard/, { timeout: 90000 });
     await expect(dialog.getByRole("heading", { name: "Review products (2)", exact: true })).toBeVisible();
-    await expect(dialog.getByRole("spinbutton", { name: "Quantity 1 *", exact: true })).toHaveValue("3");
+    await expect(dialog.getByRole("spinbutton", { name: "Quantity 1", exact: true })).toHaveValue("3");
     await expect(dialog.getByRole("spinbutton", { name: "Invoice unit price 1 (reference)", exact: true })).toHaveValue("0.10");
-    const supplier = dialog.getByRole("combobox", { name: "Supplier *", exact: true });
+    const supplier = dialog.getByRole("combobox", { name: "Supplier", exact: true });
     const supplierId = await supplier.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
     await supplier.selectOption(supplierId);
-    const first = dialog.getByRole("combobox", { name: "Matched product 1 *", exact: true });
-    const ids = await first.locator("option").evaluateAll(options => options.filter(option => option.value).map(option => option.value));
+    const first = dialog.getByRole("combobox", { name: "Matched product 1", exact: true });
+    const ids = await first.locator("option").evaluateAll(options => options.filter(option => /^\d+$/.test(option.value)).map(option => option.value));
     expect(ids.length).toBeGreaterThanOrEqual(2);
     await first.selectOption(ids[0]);
-    await dialog.getByRole("combobox", { name: "Matched product 2 *", exact: true }).selectOption(ids[0]);
+    await dialog.getByRole("combobox", { name: "Matched product 2", exact: true }).selectOption(ids[0]);
     await expect(dialog.getByText("Each product can appear only once.", { exact: false })).toBeVisible();
     await dialog.getByRole("checkbox").check();
     await expect(dialog.getByRole("button", { name: "Create pending purchase", exact: true })).toBeDisabled();
-    await dialog.getByRole("combobox", { name: "Matched product 2 *", exact: true }).selectOption(ids[1]);
+    await dialog.getByRole("combobox", { name: "Matched product 2", exact: true }).selectOption(ids[1]);
     await expect(dialog.getByRole("checkbox")).not.toBeChecked();
     await expect(dialog.getByText("Select the matching product.", { exact: true })).toHaveCount(0);
     await dialog.getByRole("checkbox").check();
@@ -106,6 +133,107 @@ test("purchase import reads images and PDFs locally and reviews many products wi
     await dialog.getByRole("button", { name: "Close modal", exact: true }).click();
   }
   expect(externalRequests).toEqual([]);
+});
+
+test("invoice review separates coded product rows and requires missing quantities to be entered", async ({ page }) => {
+  await page.goto("/purchasing");
+  await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
+  await expect(dialog.getByLabel("Extracted invoice text", { exact: true })).not.toBeVisible();
+  await dialog.getByText("View or paste invoice text", { exact: true }).click();
+  await dialog.getByLabel("Extracted invoice text", { exact: true }).fill("DESCRIPTIONS BARCODE DISC. UNIT PRICE TOTAL\nPCS EPSON INK REFILL 65ML 003 T00V L-EIR65-T00V1 0.00 340.00 340.00\nREAM HARD COPY PAPER SUBS 20 A4 PR OS-HCP20A4 0.00 155.00 310.00\nSUB-TOTAL >> 650.00");
+  await dialog.getByRole("button", { name: "Extract product lines", exact: true }).click();
+  await expect(dialog.getByRole("heading", { name: "Review products (2)", exact: true })).toBeVisible();
+  await expect(dialog.getByLabel("Invoice description 1", { exact: true })).toHaveValue("EPSON INK REFILL 65ML 003 T00V");
+  await expect(dialog.getByLabel("Invoice unit price 1 (reference)", { exact: true })).toHaveValue("340.00");
+  await expect(dialog.getByLabel(/^Quantity\ 1\s*\*?$/, { exact: true })).toHaveValue("");
+  await expect(dialog.getByText("Quantity is missing or unreadable.", { exact: false })).toHaveCount(2);
+  await dialog.getByLabel(/^Quantity\ 1\s*\*?$/, { exact: true }).fill("1");
+  await expect(dialog.getByText("Quantity is missing or unreadable.", { exact: false })).toHaveCount(1);
+  await dialog.getByLabel("Invoice description 1", { exact: true }).fill("Corrected invoice description");
+  await expect(dialog.getByLabel("Invoice description 1", { exact: true })).toHaveValue("Corrected invoice description");
+  await dialog.getByRole("checkbox").check();
+  await expect(dialog.getByRole("button", { name: "Create pending purchase", exact: true })).toBeDisabled();
+});
+
+test("invoice import reviews new and existing products together and submits one purchase", async ({ page }) => {
+  const submitted = [];
+  await page.route("**/api/purchases", async route => {
+    if (route.request().method() !== "POST") return route.continue();
+    submitted.push(route.request().postDataJSON());
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "123" }) });
+  });
+  await page.goto("/purchasing");
+  await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
+  await dialog.getByText("View or paste invoice text", { exact: true }).click();
+  await dialog.getByLabel("Extracted invoice text", { exact: true }).fill("New store item 2 10.25 20.50\nExisting store item 3 1.00 3.00");
+  await dialog.getByRole("button", { name: "Extract product lines", exact: true }).click();
+  await dialog.getByRole("combobox", { name: "Matched product 1", exact: true }).selectOption("new");
+  await expect(dialog.getByLabel(/^New\ product\ name\ 1\s*\*?$/, { exact: true })).toHaveValue("New store item");
+  await expect(dialog.getByLabel(/^New\ product\ unit\ cost\ 1\s*\*?$/, { exact: true })).toHaveValue("10.25");
+  await expect(dialog.getByLabel(/^New\ product\ selling\ price\ 1\s*\*?$/, { exact: true })).toHaveValue("");
+  await dialog.getByRole("checkbox").check();
+  await expect(dialog.getByRole("button", { name: "Create pending purchase", exact: true })).toBeDisabled();
+  await dialog.getByLabel(/^New\ product\ selling\ price\ 1\s*\*?$/, { exact: true }).fill("15.00");
+  await expect(dialog.getByRole("checkbox")).not.toBeChecked();
+  await dialog.getByLabel("New product size 1", { exact: true }).fill("Small");
+  const existing = dialog.getByRole("combobox", { name: "Matched product 2", exact: true });
+  const id = await existing.locator("option").evaluateAll(options => options.find(option => /^\d+$/.test(option.value))?.value);
+  await existing.selectOption(id);
+  const supplier = dialog.getByRole("combobox", { name: "Supplier", exact: true });
+  const supplierId = await supplier.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
+  await supplier.selectOption(supplierId);
+  await expect(dialog.getByText("1 new product will be added to Products when saved.", { exact: true })).toBeVisible();
+  await dialog.getByRole("checkbox").check();
+  await expect(dialog.getByRole("button", { name: "Create pending purchase", exact: true })).toBeEnabled();
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await dialog.getByLabel(/^New\ product\ name\ 1\s*\*?$/, { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `test-results/purchase-new-product-${width}.png`, fullPage: true });
+  }
+  await dialog.getByRole("button", { name: "Create pending purchase", exact: true }).click();
+  await expect.poll(() => submitted.length).toBe(1);
+  expect(submitted[0].items).toEqual([
+    { newProduct: { name: "New store item", size: "Small", unitCost: "10.25", sellingPrice: "15.00" }, quantity: 2 },
+    { productId: id, quantity: 3 },
+  ]);
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator(".snackbar-viewport")).toContainText("Purchase saved with 1 new product");
+});
+
+test("closing invoice import discards unsaved data through the close button and Escape", async ({ page }) => {
+  await page.goto("/purchasing");
+  const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
+  for (const closeWithEscape of [false, true]) {
+    await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
+    const initialDate = await dialog.getByLabel(/^Purchase\ date\s*\*?$/, { exact: true }).inputValue();
+    const details = dialog.locator("details");
+    if (!(await details.evaluate(element => element.open))) await details.locator("summary").click();
+    await dialog.getByLabel("Receipt or invoice file", { exact: true }).setInputFiles({ name: "invoice.png", mimeType: "image/png", buffer: Buffer.from("selected file") });
+    await dialog.getByLabel("Extracted invoice text", { exact: true }).fill("Unsaved product 2 10.00 20.00");
+    await dialog.getByRole("button", { name: "Extract product lines", exact: true }).click();
+    await dialog.getByRole("combobox", { name: "Matched product 1", exact: true }).selectOption("new");
+    await dialog.getByLabel(/^New\ product\ selling\ price\ 1\s*\*?$/, { exact: true }).fill("15.00");
+    const supplier = dialog.getByRole("combobox", { name: "Supplier", exact: true });
+    const supplierId = await supplier.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
+    await supplier.selectOption(supplierId);
+    await dialog.getByLabel(/^Purchase\ date\s*\*?$/, { exact: true }).fill("2025-01-01");
+    await dialog.getByRole("checkbox").check();
+    if (closeWithEscape) await dialog.press("Escape");
+    else await dialog.getByRole("button", { name: "Close modal", exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
+    await expect(dialog.getByLabel("Receipt or invoice file", { exact: true })).toHaveValue("");
+    await expect(dialog.getByLabel("Extracted invoice text", { exact: true })).toHaveValue("");
+    await expect(dialog.getByRole("heading", { name: "Review products (0)", exact: true })).toBeVisible();
+    await expect(supplier).toHaveValue("");
+    await expect(dialog.getByLabel(/^Purchase\ date\s*\*?$/, { exact: true })).toHaveValue(initialDate);
+    await expect(dialog.getByRole("checkbox")).not.toBeChecked();
+    await expect(dialog.getByRole("button", { name: "Read with OCR", exact: true })).toBeDisabled();
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Close modal", exact: true }).click();
+  }
 });
 
 test("purchase import rejects unsupported files and remains hidden for read-only users", async ({ page, context }) => {
@@ -135,7 +263,7 @@ test("purchase import rejects unsupported files and remains hidden for read-only
 test("numeric form inputs reject text and sales calendars block future dates", async ({ page }) => {
   await page.goto("/sales/new");
   const dialog = page.getByRole("dialog", { name: "Create Sales Order", exact: true });
-  const quantity = dialog.getByRole("spinbutton", { name: "Quantity *", exact: true });
+  const quantity = dialog.getByRole("spinbutton", { name: "Quantity", exact: true });
   await quantity.fill("");
   await quantity.pressSequentially("a1e+2-.3");
   await expect(quantity).toHaveValue("123");
@@ -146,7 +274,7 @@ test("numeric form inputs reject text and sales calendars block future dates", a
   });
   expect(blocked).toBe(true);
   await expect(quantity).toHaveValue("123");
-  const date = dialog.getByLabel("Order date *", { exact: true });
+  const date = dialog.getByLabel(/^Order\ date\s*\*?$/, { exact: true });
   const maximum = await date.getAttribute("max");
   expect(maximum).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   await date.fill("2099-01-01");
@@ -154,10 +282,10 @@ test("numeric form inputs reject text and sales calendars block future dates", a
   await date.fill(maximum);
   expect(await date.evaluate(element => element.checkValidity())).toBe(true);
   await page.goto("/purchasing/new");
-  await expect(page.getByLabel("Purchase date *", { exact: true })).not.toHaveAttribute("max");
+  await expect(page.getByRole("dialog", { name: "Create Purchase Order", exact: true }).getByLabel(/^Purchase\ date\s*\*?$/)).not.toHaveAttribute("max");
   await page.goto("/inventory/movements");
   await page.getByRole("button", { name: "Adjust Stock", exact: true }).click();
-  const adjustment = page.getByRole("spinbutton", { name: "Quantity *", exact: true });
+  const adjustment = page.getByRole("spinbutton", { name: "Quantity", exact: true });
   await adjustment.pressSequentially("a1e+2-.3");
   await expect(adjustment).toHaveValue("123");
   await page.goto("/inventory/products");
@@ -184,16 +312,16 @@ test("sales customer tabs switch fields, preserve draft values, and submit only 
     const registered = dialog.getByRole("tab", { name: "Registered Customers", exact: true });
     const walkIn = dialog.getByRole("tab", { name: "Walk-in Customers", exact: true });
     await expect(registered).toHaveAttribute("aria-selected", "true");
-    const customer = dialog.getByRole("combobox", { name: "Customer *", exact: true });
+    const customer = dialog.getByRole("combobox", { name: "Customer", exact: true });
     const customerId = await customer.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
     await customer.selectOption(customerId);
-    const product = dialog.getByRole("combobox", { name: "Product 1 *", exact: true });
+    const product = dialog.getByRole("combobox", { name: "Product 1", exact: true });
     const productId = await product.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
     await product.selectOption(productId);
-    await dialog.getByRole("spinbutton", { name: "Quantity *", exact: true }).fill("2");
+    await dialog.getByRole("spinbutton", { name: "Quantity", exact: true }).fill("2");
     await walkIn.click();
     await expect(customer).toHaveCount(0);
-    const name = dialog.getByRole("textbox", { name: "Customer name *", exact: true });
+    const name = dialog.getByRole("textbox", { name: "Customer name", exact: true });
     await expect(dialog.getByRole("button", { name: "Create pending order", exact: true })).toBeDisabled();
     await name.fill("  Walk-in test buyer  ");
     await walkIn.focus();
@@ -220,7 +348,7 @@ test("sales customer tabs switch fields, preserve draft values, and submit only 
   }
   await page.goto("/purchasing/new");
   await expect(page.getByRole("tablist", { name: "Customer type" })).toHaveCount(0);
-  await expect(page.getByRole("combobox", { name: "Supplier *", exact: true })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Supplier", exact: true })).toBeVisible();
 });
 
 test("dashboard shows recent orders and keeps currency axis labels within the chart", async ({ page }) => {
@@ -251,8 +379,8 @@ test("sales product selection keeps fields aligned and stock details below the p
     await page.goto("/sales");
     await page.getByRole("button", { name: "New Order", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Create Sales Order", exact: true });
-    const product = dialog.getByRole("combobox", { name: "Product 1 *", exact: true });
-    const quantity = dialog.getByRole("spinbutton", { name: "Quantity *", exact: true });
+    const product = dialog.getByRole("combobox", { name: "Product 1", exact: true });
+    const quantity = dialog.getByRole("spinbutton", { name: "Quantity", exact: true });
     const amount = dialog.getByText("Line total", { exact: true }).locator("..").locator("div");
     const before = await Promise.all([product.boundingBox(), quantity.boundingBox(), amount.boundingBox()]);
     const productId = await product.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
@@ -282,7 +410,7 @@ test("form feedback floats above modals, repeats, dismisses and survives a succe
   await page.goto("/customers");
   await page.getByRole("button", { name: "Add Customer", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Add customer", exact: true });
-  await dialog.getByLabel("Name *", { exact: true }).fill("Snackbar test");
+  await dialog.getByLabel(/^Name\s*\*?$/, { exact: true }).fill("Snackbar test");
   const snackbar = page.locator(".snackbar-viewport");
   for (let attempt = 0; attempt < 2; attempt++) {
     await dialog.getByRole("button", { name: "Save customer", exact: true }).click();
@@ -349,7 +477,11 @@ test("feature pages load database data and open creation, editing and detail mod
   for (const [path, heading, add, dialog] of [["/customers", "Customers", "Add Customer", "Add customer"], ["/suppliers", "Suppliers", "Add Supplier", "Add supplier"], ["/sales", "Sales Orders", "New Order", "Create Sales Order"], ["/purchasing", "Purchase Orders", "New Purchase Order", "Create Purchase Order"], ["/settings/users", "Users", "Add User", "Add user"]]) {
     await page.goto(path); await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
     await page.getByRole("button", { name: add, exact: true }).click();
-    await expect(page.getByRole("dialog", { name: dialog, exact: true })).toBeVisible();
+    const formDialog = page.getByRole("dialog", { name: dialog, exact: true });
+    await expect(formDialog).toBeVisible();
+    const missingRequiredMarkers = await formDialog.locator("input[required], select[required], textarea[required]").evaluateAll(fields => fields.filter(field => !Array.from(field.labels ?? []).some(label => label.querySelector("span.text-red-500[aria-hidden='true']"))).map(field => field.name || field.id || field.tagName));
+    expect(missingRequiredMarkers).toEqual([]);
+    if (path === "/sales" || path === "/purchasing") await page.screenshot({ path: `test-results/${path.slice(1)}-form-labels.png`, fullPage: true });
     await page.getByRole("button", { name: "Close modal" }).click();
     await expect(page.getByRole("dialog")).not.toBeVisible();
   }

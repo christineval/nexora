@@ -78,6 +78,16 @@ The login limiter is per process (five attempts per email per fifteen minutes). 
 
 ## Verification
 
+### Audit history
+
+Administrators can open **Administration → Audit Log** (`/settings/audit`) to view admin and employee events. The read-only log supports server-side pagination and filters for user ID, action, record type, outcome, and inclusive Asia/Manila dates. Employees and guests cannot access the page or `/api/audit`, even by supplying another user's ID or an admin role in the request.
+
+Recorded events include successful logins, invalid-credential login failures, explicit logouts, session-limit/password-change revocations, password changes, user creation/edits/role changes, product creation/edits, customer and supplier creation/edits, stock adjustments, sales and purchase creation/edits/status changes, automatic ledger postings, and authenticated module-access denials. Nested walk-in customer and purchase-product creation is included. Failed logins have an unknown actor because a failed password does not establish identity. Guest demo activity is excluded.
+
+Each entry stores the server-resolved actor ID, name and role at the time, action, affected record reference, outcome, time, and relevant before/after fields. Contact-field changes record field names without their private values. Passwords, hashes, session tokens, email addresses, phone numbers, and street addresses are excluded. Successful business changes and their audit entries commit together; an audit-write failure rolls back the business change. PostgreSQL triggers reject audit updates, deletes, and truncation. Database owners can still alter these protections; this is not an external tamper-proof archive.
+
+Apply the additive `20261021000000_audit_logs` migration through the existing reviewed migration workflow **before running the updated application**. It creates only the audit table, indexes, function and append-only trigger. Existing data is not backfilled. Closing a browser and passive session expiry do not create logout events. Page visits, client-side CSV exports, browser theme changes, invalid form submissions, database maintenance and external SQL changes are not captured by this application-level log.
+
 ```sh
 npm run lint
 npm run typecheck
@@ -100,7 +110,11 @@ The seed script intentionally inserts nothing. Unsupported database fields are n
 
 Tesseract.js provides free OCR with no API key or per-document fee. PDF.js renders PDF pages for OCR. Workers, WebAssembly and English language data are served from this app; receipt files never leave the browser. `npm install` prepares these assets in ignored `public/ocr/` through `postinstall`. Run `npm run ocr:prepare` if install scripts were disabled, and include the generated assets when deploying.
 
-Supported limits are 20 MB, 24 megapixels per image/page, 10 PDF pages and 100 product lines per order. The current parser recognizes product-name / quantity / unit-price / line-total rows (quantity may also lead the row). It suggests exact unique product/SKU and supplier matches; unknown or ambiguous products require manual selection. ISO invoice dates can be suggested; other dates need manual entry. OCR is fallible: check the whole invoice, add missed lines, correct quantities, and combine repeated products before saving. Taxes, discounts and invoice totals are not imported into the existing purchase accounting workflow. Uploaded documents are not retained as attachments.
+Supported limits are 20 MB, 24 megapixels per image/page, 10 PDF pages and 100 product lines per order. Images/pages receive local contrast enhancement and automatic straightening for tilts up to 20 degrees. Barcode invoice layouts receive separate numeric recognition for discount and unit-price cells; low-confidence prices stay blank for manual entry. This does not correct perspective distortion or recover cropped text.
+
+The parser recognizes product-name / quantity / unit-price / line-total rows (quantity may also lead the row), barcode / discount / unit-price / total layouts, and explicitly headed description / quantity / unit-price tables without totals. Barcode and discount columns are separated from descriptions; missing quantities are never inferred from totals or defaulted to one. It suggests exact unique product/SKU and supplier matches; unknown or ambiguous products require manual selection. Descriptions and reference prices are editable in the product review; raw OCR text is available under **View or paste invoice text**. ISO invoice dates can be suggested; other dates need manual entry. OCR is fallible: check the whole invoice, add missed lines, correct quantities, and combine repeated products before saving. Taxes, discounts and invoice totals are not imported into the existing purchase accounting workflow; authoritative purchase costs still come from stored product costs. Uploaded documents are not retained as attachments.
+
+Each imported line can select an existing product or **Create new product**. New products start with the extracted description and unit price as editable name/cost suggestions; review the name, optional size, unit cost and required selling price. Existing products retain their stored costs. Saving creates all new products and the pending purchase atomically through `POST /api/purchases`, using the existing PostgreSQL SKU sequence and decimal-safe server calculations. New products are active with zero stock; receiving the purchase later adds stock and posts the existing inventory/finance audit records. The server requires purchasing access and product creation permission. Invalid lines or a failed purchase roll back product creation; no schema change is needed.
 
 Libraries: [Tesseract.js](https://github.com/naptha/tesseract.js), [PDF.js](https://mozilla.github.io/pdf.js/).
 

@@ -1,5 +1,6 @@
 "use client";
 
+import FormLabel from "@/components/ui/FormLabel";
 import { useState } from "react";
 import { CalendarDays, ChevronDown, Eye, Search } from "lucide-react";
 import Modal from "@/components/ui/Modal";
@@ -45,15 +46,12 @@ export default function MovementTable({ rows }: { rows: InventoryMovementRow[] }
 
   return <>
     <div className="mb-4 grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_160px_200px_280px]">
-      <label htmlFor="movement-search" className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400">Search movements
-        <span className="relative"><Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" /><input id="movement-search" type="search" value={filters.query} onChange={(event) => updateFilter("query", event.target.value)} placeholder="Search products, references..." className={control + " pl-9"} /></span>
-      </label>
-      <label htmlFor="movement-type" className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400">Movement type
-        <select id="movement-type" className={control} value={filters.type} onChange={(event) => updateFilter("type", event.target.value)}><option value="">All Types</option>{types.map((type) => <option key={type} value={type}>{type}</option>)}</select>
-      </label>
-      <label htmlFor="movement-product" className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400">Product
-        <select id="movement-product" className={control} value={filters.productId} onChange={(event) => updateFilter("productId", event.target.value)}><option value="">All Products</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name} ({product.sku})</option>)}</select>
-      </label>
+      <FormLabel label="Search movements" htmlFor="movement-search" className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400"><span className="relative"><Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" /><input id="movement-search" type="search" value={filters.query} onChange={(event) => updateFilter("query", event.target.value)} placeholder="Search products, references..." className={control + " pl-9"} /></span>
+      </FormLabel>
+      <FormLabel label="Movement type" htmlFor="movement-type" className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400"><select id="movement-type" className={control} value={filters.type} onChange={(event) => updateFilter("type", event.target.value)}><option value="">All Types</option>{types.map((type) => <option key={type} value={type}>{type}</option>)}</select>
+      </FormLabel>
+      <FormLabel label="Product" htmlFor="movement-product" className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400"><select id="movement-product" className={control} value={filters.productId} onChange={(event) => updateFilter("productId", event.target.value)}><option value="">All Products</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name} ({product.sku})</option>)}</select>
+      </FormLabel>
       <div className="grid gap-1.5">
         <span className="text-xs font-medium text-slate-500 dark:text-neutral-400">Date range</span>
         <details className="relative">
@@ -61,12 +59,10 @@ export default function MovementTable({ rows }: { rows: InventoryMovementRow[] }
           <div className="absolute right-0 z-20 mt-2 w-full min-w-64 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-[#303030] dark:bg-[#191919]">
             <p className="mb-3 text-xs text-slate-500 dark:text-neutral-400">Dates use Philippine time.</p>
             <div className="grid gap-3">
-              <label htmlFor="movement-from" className="grid gap-1.5 text-xs font-medium">From
-                <input id="movement-from" type="date" value={filters.from} max={filters.to || undefined} onChange={(event) => updateFilter("from", event.target.value)} aria-invalid={invalidRange} aria-describedby={invalidRange ? "movement-date-error" : undefined} className={control + " dark:[color-scheme:dark]"} />
-              </label>
-              <label htmlFor="movement-to" className="grid gap-1.5 text-xs font-medium">To
-                <input id="movement-to" type="date" value={filters.to} min={filters.from || undefined} onChange={(event) => updateFilter("to", event.target.value)} aria-invalid={invalidRange} aria-describedby={invalidRange ? "movement-date-error" : undefined} className={control + " dark:[color-scheme:dark]"} />
-              </label>
+              <FormLabel label="From" htmlFor="movement-from" className="grid gap-1.5 text-xs font-medium"><input id="movement-from" type="date" value={filters.from} max={filters.to || undefined} onChange={(event) => updateFilter("from", event.target.value)} aria-invalid={invalidRange} aria-describedby={invalidRange ? "movement-date-error" : undefined} className={control + " dark:[color-scheme:dark]"} />
+              </FormLabel>
+              <FormLabel label="To" htmlFor="movement-to" className="grid gap-1.5 text-xs font-medium"><input id="movement-to" type="date" value={filters.to} min={filters.from || undefined} onChange={(event) => updateFilter("to", event.target.value)} aria-invalid={invalidRange} aria-describedby={invalidRange ? "movement-date-error" : undefined} className={control + " dark:[color-scheme:dark]"} />
+              </FormLabel>
             </div>
             {invalidRange && <p id="movement-date-error" role="alert" className="mt-3 text-xs text-rose-600 dark:text-rose-300">Choose an end date on or after the start date.</p>}
             <button type="button" className="mt-3 text-xs font-medium text-violet-600 hover:underline dark:text-violet-400" onClick={() => { setFilters((current) => ({ ...current, from: "", to: "" })); setRequestedPage(1); }}>Clear dates</button>

@@ -1,4 +1,5 @@
 import "server-only";
+import { recordAudit } from "@/server/audit";
 import type { CurrentUser } from "@/lib/auth";
 import { orderAccessWhere } from "@/server/order-access";
 import { Prisma } from "@prisma/client";
@@ -8,6 +9,9 @@ import { nextStatus, type TransactionKind } from "@/lib/workflow";
 import { idSchema, transactionSchema, type TransactionInput } from "@/validations/shared";
 import { orderSchema, type OrderInput } from "@/validations/order.schema";
 import type { TransactionRow } from "@/types/features";
+import { purchaseCreateSchema } from "@/validations/purchase-create.schema";
+import { createProductInTransaction } from "./inventory.service";
+import { canWrite } from "@/lib/access";
 
 export async function listTransactions(kind: TransactionKind, user: CurrentUser): Promise<TransactionRow[]> {
   const where = orderAccessWhere(user, kind);
@@ -19,12 +23,13 @@ export async function listTransactions(kind: TransactionKind, user: CurrentUser)
   return rows.map(row => ({ id: row.id.toString(), party: row.suppliers.name, partyId: row.supplier_id.toString(), timestamp: row.purchase_date.toISOString(), status: row.status, total: row.total_amount.toFixed(2), createdBy: row.users.name, items: row.purchase_items.map(item => ({ id: item.id.toString(), productId: item.product_id.toString(), name: item.products.name, sku: item.products.sku, quantity: item.quantity, unitPrice: item.unit_price.toFixed(2), lineTotal: item.line_total.toFixed(2) })) }));
 }
 
-async function prepareTransaction(tx: Prisma.TransactionClient, kind: TransactionKind, data: TransactionInput | OrderInput) {
+async function prepareTransaction(tx: Prisma.TransactionClient, kind: TransactionKind, data: TransactionInput | OrderInput, user: CurrentUser) {
   const walkInCustomer = kind === "sales" && "walkInCustomer" in data ? data.walkInCustomer : undefined;
   const party = walkInCustomer
     ? await tx.customers.create({ data: { name: walkInCustomer.name, status: "ACTIVE" } })
     : data.partyId ? (kind === "sales" ? await tx.customers.findUnique({ where: { id: BigInt(data.partyId) } }) : await tx.suppliers.findUnique({ where: { id: BigInt(data.partyId) } })) : null;
   if (!party || party.status !== "ACTIVE") throw new BusinessError("Select an active customer or supplier.", 400);
+  if (walkInCustomer) await recordAudit(tx, user, { action: "CUSTOMER_CREATED", entity: "CUSTOMER", entityId: party.id, after: party });
   const partyId = party.id;
   const products = await tx.products.findMany({ where: { id: { in: data.items.map(item => BigInt(item.productId)) }, status: "ACTIVE" } });
   const productsById = new Map(products.map(product => [product.id.toString(), product]));
@@ -45,13 +50,26 @@ async function prepareTransaction(tx: Prisma.TransactionClient, kind: Transactio
 export async function createTransaction(kind: TransactionKind, input: unknown, user: CurrentUser) {
   orderAccessWhere(user, kind, true);
   const userId = user.id;
-  const data = kind === "sales" ? orderSchema.parse(input) : transactionSchema.parse(input);
+  const data = kind === "sales" ? orderSchema.parse(input) : purchaseCreateSchema.parse(input);
+  if (data.items.some(item => "newProduct" in item && item.newProduct) && !canWrite(user.role, "inventory")) {
+    throw new BusinessError("Your role does not allow creating products.", 403);
+  }
   return prisma.$transaction(async tx => {
-    const { partyId, items, total, date } = await prepareTransaction(tx, kind, data);
+    const resolvedItems: TransactionInput["items"] = [];
+    for (const item of data.items) {
+      if ("newProduct" in item && item.newProduct) {
+        const product = await createProductInTransaction(tx, item.newProduct, user.id);
+        resolvedItems.push({ productId: product.id.toString(), quantity: item.quantity });
+      } else if (item.productId !== undefined) {
+        resolvedItems.push({ productId: item.productId, quantity: item.quantity });
+      }
+    }
+    const { partyId, items, total, date } = await prepareTransaction(tx, kind, { ...data, items: resolvedItems }, user);
     // Approved rule: tax-free sales; prices are snapshots of current product prices.
     const row = kind === "sales"
       ? await tx.orders.create({ data: { customer_id: partyId, created_by: userId, order_date: date, subtotal: total, tax: 0, total_amount: total, order_items: { create: items } } })
       : await tx.purchase_orders.create({ data: { supplier_id: partyId, created_by: userId, purchase_date: date, total_amount: total, purchase_items: { create: items } } });
+    await recordAudit(tx, user, { action: kind === "sales" ? "ORDER_CREATED" : "PURCHASE_CREATED", entity: kind === "sales" ? "ORDER" : "PURCHASE_ORDER", entityId: row.id, after: { ...row, [kind === "sales" ? "order_items" : "purchase_items"]: items } });
     return { id: row.id.toString() };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
@@ -62,10 +80,10 @@ export async function editTransaction(kind: TransactionKind, recordId: string, i
   const data = kind === "sales" ? orderSchema.parse(input) : transactionSchema.parse(input);
   return prisma.$transaction(async tx => {
     const existing = kind === "sales"
-      ? await tx.orders.findUnique({ where: { id, ...scope }, select: { id: true } })
-      : await tx.purchase_orders.findUnique({ where: { id, ...scope }, select: { id: true } });
+      ? await tx.orders.findUnique({ where: { id, ...scope }, include: { order_items: true } })
+      : await tx.purchase_orders.findUnique({ where: { id, ...scope }, include: { purchase_items: true } });
     if (!existing) throw new BusinessError("Transaction not found.", 404);
-    const { partyId, items, total, date } = await prepareTransaction(tx, kind, data);
+    const { partyId, items, total, date } = await prepareTransaction(tx, kind, data, user);
     const changed = kind === "sales"
       ? await tx.orders.updateMany({ where: { id, ...scope, status: "PENDING" }, data: { customer_id: partyId, order_date: date, subtotal: total, tax: 0, total_amount: total, updated_at: new Date() } })
       : await tx.purchase_orders.updateMany({ where: { id, ...scope, status: "PENDING" }, data: { supplier_id: partyId, purchase_date: date, total_amount: total, updated_at: new Date() } });
@@ -77,6 +95,7 @@ export async function editTransaction(kind: TransactionKind, recordId: string, i
       await tx.purchase_items.deleteMany({ where: { purchase_order_id: id } });
       await tx.purchase_items.createMany({ data: items.map(item => ({ ...item, purchase_order_id: id })) });
     }
+    await recordAudit(tx, user, { action: kind === "sales" ? "ORDER_UPDATED" : "PURCHASE_UPDATED", entity: kind === "sales" ? "ORDER" : "PURCHASE_ORDER", entityId: id, before: existing, after: { id, customer_id: kind === "sales" ? partyId : undefined, supplier_id: kind === "purchasing" ? partyId : undefined, [kind === "sales" ? "order_date" : "purchase_date"]: date, status: "PENDING", total_amount: total, [kind === "sales" ? "order_items" : "purchase_items"]: items } });
     return { id: id.toString() };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
@@ -93,7 +112,8 @@ export async function transitionTransaction(kind: TransactionKind, recordId: str
       ? await tx.orders.updateMany({ where: { id, ...scope, status: row.status }, data: { status, updated_at: new Date() } })
       : await tx.purchase_orders.updateMany({ where: { id, ...scope, status: row.status }, data: { status, updated_at: new Date() } });
     if (changed.count !== 1) throw new BusinessError("Another operation changed this transaction. Refresh and try again.");
-    if (action !== "complete") return { id: id.toString(), status };
+    const auditTransition = () => recordAudit(tx, user, { action: (kind === "sales" ? "ORDER_" : "PURCHASE_") + status, entity: kind === "sales" ? "ORDER" : "PURCHASE_ORDER", entityId: id, before: { status: row.status }, after: { status, total_amount: row.total_amount } });
+    if (action !== "complete") { await auditTransition(); return { id: id.toString(), status }; }
     const items = "order_items" in row ? row.order_items : row.purchase_items;
     if (!items.length || row.total_amount.lte(0)) throw new BusinessError("This transaction has no valid positive total.");
     const itemTotal = items.reduce((sum, item) => {
@@ -119,6 +139,8 @@ export async function transitionTransaction(kind: TransactionKind, recordId: str
     // Approved rules: cash sale revenue, or inventory received on supplier credit.
     const accounts = kind === "sales" ? ["Cash", "Sales Revenue"] : ["Inventory", "Accounts Payable"];
     await tx.ledger_entries.createMany({ data: accounts.map((account, index) => ({ account_name: account, entry_type: index === 0 ? "DEBIT" : "CREDIT", amount: row.total_amount, reference_type: reference, reference_id: id, description: kind === "sales" ? "Completed cash sale" : "Purchase inventory received on credit", created_by: userId })) });
+    await recordAudit(tx, user, { action: "LEDGER_POSTED", entity: "LEDGER", entityId: id, after: { reference_type: reference, reference_id: id, amount: row.total_amount, name: accounts.join(" / ") } });
+    await auditTransition();
     return { id: id.toString(), status };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

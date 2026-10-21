@@ -4,6 +4,7 @@ import { createSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { BusinessError } from "@/lib/errors";
+import { recordSecurityEvent } from "@/server/audit";
 
 import { consumeLimit } from "@/lib/rate-limit";
 export async function POST(request: Request) {
@@ -13,7 +14,10 @@ export async function POST(request: Request) {
     await consumeLimit(`login:${data.email.toLowerCase()}`, 5, 15 * 60);
     const user = await prisma.users.findFirst({ where: { email: { equals: data.email, mode: "insensitive" } } });
     const valid = await verifyPassword(data.password, user?.password_hash ?? "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxgDqiHHdTMqYF5rOStULM1iS6e");
-    if (!user || !valid) throw new BusinessError("Email or password is incorrect.", 401);
+    if (!user || !valid) {
+      await recordSecurityEvent(null, { action: "LOGIN_FAILED", entity: "AUTH", entityId: user?.id, outcome: "FAILURE" });
+      throw new BusinessError("Email or password is incorrect.", 401);
+    }
     await createSession(user.id, user.password_hash);
     return { message: "Signed in." };
   });

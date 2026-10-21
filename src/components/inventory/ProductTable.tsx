@@ -1,5 +1,6 @@
 "use client";
 
+import FormLabel from "@/components/ui/FormLabel";
 import Link from "next/link";
 import { useState } from "react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
@@ -52,15 +53,12 @@ export default function ProductTable({ rows, initialQuery = "", canEdit = true }
 
   return <>
     <div className="mb-4 grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_160px_180px]">
-      <label className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400" htmlFor="product-search">Search products
-        <span className="relative"><Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" /><input id="product-search" type="search" value={query} onChange={(event) => { setQuery(event.target.value); setRequestedPage(1); }} placeholder="Search by product name, SKU or size..." className={control + " w-full pr-3 pl-9 font-normal text-slate-900 dark:text-neutral-100"} /></span>
-      </label>
-      <label className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400" htmlFor="product-status">Status
-        <select id="product-status" value={status} onChange={(event) => { setStatus(event.target.value); setRequestedPage(1); }} className={control + " w-full px-3 font-normal text-slate-700 dark:text-neutral-200"}><option value="">All Status</option>{statuses.map((value) => <option key={value} value={value}>{value}</option>)}</select>
-      </label>
-      <label className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400" htmlFor="product-stock">Stock level
-        <select id="product-stock" value={stock} onChange={(event) => { setStock(event.target.value as StockFilter); setRequestedPage(1); }} className={control + " w-full px-3 font-normal text-slate-700 dark:text-neutral-200"}><option value="all">All Stock Levels</option><option value="in-stock">In stock</option><option value="low-stock">Low stock</option><option value="out-of-stock">Out of stock</option></select>
-      </label>
+      <FormLabel label="Search products" className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400" htmlFor="product-search"><span className="relative"><Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" /><input id="product-search" type="search" value={query} onChange={(event) => { setQuery(event.target.value); setRequestedPage(1); }} placeholder="Search by product name, SKU or size..." className={control + " w-full pr-3 pl-9 font-normal text-slate-900 dark:text-neutral-100"} /></span>
+      </FormLabel>
+      <FormLabel label="Status" className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400" htmlFor="product-status"><select id="product-status" value={status} onChange={(event) => { setStatus(event.target.value); setRequestedPage(1); }} className={control + " w-full px-3 font-normal text-slate-700 dark:text-neutral-200"}><option value="">All Status</option>{statuses.map((value) => <option key={value} value={value}>{value}</option>)}</select>
+      </FormLabel>
+      <FormLabel label="Stock level" className="grid gap-1.5 text-xs font-medium text-slate-500 dark:text-neutral-400" htmlFor="product-stock"><select id="product-stock" value={stock} onChange={(event) => { setStock(event.target.value as StockFilter); setRequestedPage(1); }} className={control + " w-full px-3 font-normal text-slate-700 dark:text-neutral-200"}><option value="all">All Stock Levels</option><option value="in-stock">In stock</option><option value="low-stock">Low stock</option><option value="out-of-stock">Out of stock</option></select>
+      </FormLabel>
     </div>
 
     {(query || status || stock !== "all") && <button type="button" onClick={resetFilters} className="mb-3 text-sm font-medium text-violet-600 hover:underline dark:text-violet-400">Clear filters</button>}
