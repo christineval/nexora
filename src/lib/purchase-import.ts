@@ -4,7 +4,7 @@ import type { ProductRow } from "@/types/views";
 export type ImportedPurchaseLine = {
   description: string;
   supplierProductCode: string;
-  matchStatus: "code" | "name" | "unmatched" | "ambiguous" | "confirmed";
+  matchStatus: "code" | "name" | "suggested" | "unmatched" | "ambiguous" | "confirmed";
   productId: string;
   quantity: string;
   unitPrice: string;
@@ -49,21 +49,49 @@ export function normalizeImportName(value: string) {
 
 export function matchImportProduct(description: string, products: ProductRow[]) {
   const name = normalizeImportName(description);
+  if (!name) return "";
   const matches = products.filter(product => product.status === "ACTIVE" && [product.sku, product.name, [product.name, product.size].filter(Boolean).join(" ")].some(value => normalizeImportName(value) === name));
   return matches.length === 1 ? matches[0].productId : "";
 }
 
+export function normalizeSupplierCode(value: string) {
+  return value.normalize("NFKC").trim().toUpperCase().replace(/[\u2010-\u2015\u2212]/g, "-").replace(/\s*([-/.])\s*/g, "$1");
+}
+
+function importNameWithoutPrefix(value: string) {
+  return normalizeImportName(value.replace(/^[\p{L}\p{N}]{1,8}\s*,\s*/u, ""));
+}
+
+function similarImportName(left: string, right: string) {
+  if (!left || !right) return false;
+  if (left === right) return true;
+  const leftWords = new Set(left.split(" "));
+  const rightWords = new Set(right.split(" "));
+  const common = [...leftWords].filter(word => rightWords.has(word)).length;
+  return common >= 2 && 2 * common / (leftWords.size + rightWords.size) >= 0.8;
+}
+
 export function matchImportLine(description: string, supplierProductCode: string, products: ProductRow[]) {
-  const code = supplierProductCode.trim();
+  const code = normalizeSupplierCode(supplierProductCode);
   const active = products.filter(product => product.status === "ACTIVE");
   if (code) {
-    // Preserve punctuation and case: changing either can identify a different supplier item.
-    const matches = active.filter(product => product.supplierProductCode?.trim() === code);
+    // Normalize typography while preserving punctuation, digits and leading zeros.
+    const matches = active.filter(product => normalizeSupplierCode(product.supplierProductCode ?? "") === code);
     if (matches.length === 1) return { productId: matches[0].productId, matchStatus: "code" as const };
     if (matches.length > 1) return { productId: "", matchStatus: "ambiguous" as const };
   }
-  const productId = matchImportProduct(description, active);
-  return { productId, matchStatus: productId ? "name" as const : "unmatched" as const };
+  const name = normalizeImportName(description);
+  const exactNames = name ? active.filter(product => [product.sku, product.name, [product.name, product.size].filter(Boolean).join(" ")].some(value => normalizeImportName(value) === name)) : [];
+  if (exactNames.length > 1) return { productId: "", matchStatus: "ambiguous" as const };
+  if (exactNames.length === 1) {
+    const product = exactNames[0];
+    const conflictingCode = !!code && !!normalizeSupplierCode(product.supplierProductCode ?? "");
+    return { productId: product.productId, matchStatus: conflictingCode ? "suggested" as const : "name" as const };
+  }
+  const comparableName = importNameWithoutPrefix(description);
+  const suggestions = active.filter(product => [product.name, [product.name, product.size].filter(Boolean).join(" ")].some(value => similarImportName(comparableName, importNameWithoutPrefix(value))));
+  if (suggestions.length === 1) return { productId: suggestions[0].productId, matchStatus: "suggested" as const };
+  return { productId: "", matchStatus: suggestions.length > 1 ? "ambiguous" as const : "unmatched" as const };
 }
 
 export function parsePurchaseText(text: string, products: ProductRow[]): ImportedPurchaseLine[] {

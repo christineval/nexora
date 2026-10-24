@@ -73,11 +73,40 @@ test("supplier codes take priority over names and internal SKUs without erasing 
   const catalog = [{ ...products[0], supplierProductCode: "BP-TBR-R" }, { ...products[1], supplierProductCode: "BPTBRR" }];
   assert.equal(matchImportLine("Mouse", "BP-TBR-R", catalog).productId, "1");
   assert.equal(matchImportLine("Unreadable", " BPTBRR ", catalog).productId, "2");
-  assert.equal(matchImportLine("Unreadable", "bp-tbr-r", catalog).productId, "");
-  assert.equal(matchImportLine("Keyboard", "UNKNOWN", catalog).matchStatus, "name");
+  assert.equal(matchImportLine("Unreadable", "bp-tbr-r", catalog).productId, "1");
+  assert.equal(matchImportLine("Keyboard", "UNKNOWN", catalog).matchStatus, "suggested");
   assert.equal(matchImportLine("Unreadable", "P001", catalog).productId, "");
   assert.equal(matchImportLine("Keyboard", "BP-TBR-R", [...catalog, { ...catalog[0], productId: "3" }]).matchStatus, "ambiguous");
   assert.equal(matchImportLine("Unreadable", "BP-TBR-R", [{ ...catalog[0], status: "INACTIVE" }]).productId, "");
+});
+
+test("supplier-code typography matches automatically while punctuation and leading zeros remain distinct", () => {
+  const catalog = [{ ...products[0], supplierProductCode: "BP-TBR-R" }, { ...products[1], supplierProductCode: "00123" }];
+  assert.equal(matchImportLine("Unreadable", " bp \u2013 TBR - r ", catalog).matchStatus, "code");
+  assert.equal(matchImportLine("Unreadable", "123", catalog).productId, "");
+  assert.equal(matchImportLine("Unreadable", "BPTBRR", catalog).productId, "");
+  assert.equal(matchImportLine("Unreadable", "bp-tbr-r", [...catalog, { ...catalog[0], productId: "3", supplierProductCode: "bp-tbr-r" }]).matchStatus, "ambiguous");
+});
+
+test("the saved BP-TRB-R versus invoice BP-TBR-R mismatch suggests the existing prefixed-name product instead of creating a new one", () => {
+  const catalog = [{ ...products[0], name: "BALL RETAINER REAR PRX", supplierProductCode: "BP-TRB-R" }];
+  const line = parsePurchaseText("QTY DESCRIPTIONS BARCODE DISC UNIT PRICE TOTAL\n100 PCS BP, BALL RETAINER REAR PRX BP-TBR-R 0.00 3.00 300.00", catalog)[0];
+  assert.equal(line.productId, "1");
+  assert.equal(line.matchStatus, "suggested");
+  assert.equal(line.warning, "");
+  const correctedCatalog = [{ ...catalog[0], supplierProductCode: "BP-TBR-R" }];
+  assert.equal(matchImportLine(line.description, line.supplierProductCode, correctedCatalog).matchStatus, "code");
+  assert.equal(catalog[0].supplierProductCode, "BP-TRB-R");
+});
+
+test("unique exact names auto-match without conflicting codes; similar names and duplicate candidates require review", () => {
+  assert.equal(matchImportLine("Keyboard", "", products).matchStatus, "name");
+  assert.equal(matchImportLine("Keyboard", "NEW-CODE", products).productId, "1");
+  const catalog = [{ ...products[0], name: "SPORTS BALL VALVE SMALL", supplierProductCode: "SPORTS-1" }];
+  assert.equal(matchImportLine("SPORTS BALL VALVE", "", catalog).matchStatus, "suggested");
+  assert.equal(matchImportLine("SPORTS BALL VALVE", "", [...catalog, { ...catalog[0], productId: "3" }]).matchStatus, "ambiguous");
+  assert.equal(matchImportLine("Keyboard", "", [...products, { ...products[0], productId: "3" }]).matchStatus, "ambiguous");
+  assert.equal(matchImportLine("", "", products).matchStatus, "unmatched");
 });
 
 test("barcode headers accept plain, numeric and punctuation-bearing supplier codes", () => {
