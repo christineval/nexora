@@ -135,6 +135,41 @@ test("purchase import reads images and PDFs locally and reviews many products wi
   expect(externalRequests).toEqual([]);
 });
 
+test("highlighted invoice OCR separates numeric quantities from units and product sizes", async ({ page }) => {
+  test.setTimeout(120000);
+  await page.goto("/purchasing");
+  const image = await page.evaluate(() => {
+    const canvas = document.createElement("canvas"); canvas.width = 1800; canvas.height = 550;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "white"; context.fillRect(0, 0, canvas.width, canvas.height);
+    context.font = "28px monospace"; context.fillStyle = "black";
+    [["QTY", 50], ["DESCRIPTIONS", 300], ["BARCODE", 950], ["DISC.", 1290], ["UNIT PRICE", 1400], ["TOTAL", 1640]].forEach(([label, x]) => context.fillText(label, x, 80));
+    const rows = [
+      ["3", "PCS", "PEDAL PLASTIC 1/2", "BP-CPP1/2", "65.00", "195.00"],
+      ["10", "PAIR", "HANDLE GRIP BLACK", "BP-SHG-BK", "40.00", "400.00"],
+      ["5", "PCS", "TIRE LEO 26 X 1 3/8", "BP-LT26X13/8D", "151.00", "755.00"],
+    ];
+    rows.forEach(([qty, unit, description, barcode, price, total], index) => {
+      const y = 175 + index * 100;
+      context.fillStyle = "#ff8dcb"; context.fillRect(35, y - 35, 160, 45); context.fillRect(1410, y - 35, 155, 45);
+      context.strokeStyle = "#bc5263"; context.lineWidth = 2; context.beginPath(); context.ellipse(75, y - 10, 42, 35, 0, 0, Math.PI * 2); context.stroke();
+      context.fillStyle = "black";
+      [[qty, 50], [unit, 160], [description, 300], [barcode, 950], ["0.00", 1290], [price, 1440], [total, 1640]].forEach(([value, x]) => context.fillText(value, x, y));
+    });
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
+  await dialog.getByLabel("Receipt or invoice file", { exact: true }).setInputFiles({ name: "highlighted-invoice.png", mimeType: "image/png", buffer: Buffer.from(image, "base64") });
+  await dialog.getByRole("button", { name: "Read with OCR", exact: true }).click();
+  await expect(dialog.getByRole("heading", { name: "Review products (3)", exact: true })).toBeVisible({ timeout: 90000 });
+  for (const [index, quantity, price, description] of [[1, "3", "65.00", "PEDAL PLASTIC 1/2"], [2, "10", "40.00", "HANDLE GRIP BLACK"], [3, "5", "151.00", "TIRE LEO 26 X 1 3/8"]]) {
+    await expect(dialog.getByRole("spinbutton", { name: `Quantity ${index}`, exact: true })).toHaveValue(quantity);
+    await expect(dialog.getByRole("spinbutton", { name: `Invoice unit price ${index} (reference)`, exact: true })).toHaveValue(price);
+    await expect(dialog.getByLabel(`Invoice description ${index}`, { exact: true })).toHaveValue(description);
+  }
+});
+
 test("invoice review separates coded product rows and requires missing quantities to be entered", async ({ page }) => {
   await page.goto("/purchasing");
   await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();

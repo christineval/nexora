@@ -97,3 +97,40 @@ test("hyphenated product descriptions are not mistaken for invoice barcodes", ()
   assert.equal(rows[0].quantity, "2");
   assert.equal(rows[1].unitPrice, "10.00");
 });
+
+test("full invoice rows separate numeric quantities and ignore units without stripping product sizes", () => {
+  const rows = parsePurchaseText(`QTY DESCRIPTIONS BARCODE DISC. UNIT PRICE TOTAL
+100 PCS BP, BALL RETAINER REAR PRX BP-TBR-R 0.00 3.00 300.00
+(30) PCS BP, BMX CABLE REAR PE- BP-TBC-R 0.00 15.00 450.00
+12/PCS BP, FRONT AXLE A CR- BP-TFA-A 0.00 32.00 384.00
+2) PCS BP, MTB V-BRAKE ALLOY PGB- BP-TMVB-A 0.00 240.00 480.00
+2 PCS BP, MTB V-BRAKE STEEL PCX- BP-TMVB-S 0.00 150.00 300.00
+3 PCS BP, PEDAL PLASTIC 1/2 RT- BP-CPP1/2 0.00 65.00 195.00
+12 PCS BP, REAR AXLE WNR PIBX BP-TRA-WNR 0.00 28.00 336.00
+10 PAIR BP, STAR HANDLE GRIP BLACK UT- BP-SHG-BK 0.00 40.00 400.00
+5 PCS BP, TIRE LEO 26 X 1 3/8 DIABLO BP-LT26X13/8D 0.00 151.00 755.00
+(10) PCS BP, TUBE LEO 14 X 2.125 BUTYL BP-LTU14X2.125B 0.00 54.00 540.00
+3 PCS MO, PRESTONE BRAKE FLUID SMALL MO-PRBFS 0.00 66.00 198.00
+SUB-TOTAL >> 4,338.00`, []);
+  assert.equal(rows.length, 11);
+  assert.deepEqual(Array.from(rows, row => row.quantity), ["100", "30", "12", "2", "2", "3", "12", "10", "5", "10", "3"]);
+  assert.deepEqual(Array.from(rows, row => row.unitPrice), ["3.00", "15.00", "32.00", "240.00", "150.00", "65.00", "28.00", "40.00", "151.00", "54.00", "66.00"]);
+  for (const row of rows) {
+    assert.doesNotMatch(row.description, /^(?:\d|PCS\b|PAIR\b)/i);
+    assert.equal(row.warning, "Select the matching product.");
+  }
+  assert.equal(rows[5].description, "BP, PEDAL PLASTIC 1/2 RT-");
+  assert.equal(rows[8].description, "BP, TIRE LEO 26 X 1 3/8 DIABLO");
+  assert.equal(rows[9].description, "BP, TUBE LEO 14 X 2.125 BUTYL");
+});
+
+test("an unreadable quantity remains blank while unit text is excluded from descriptions", () => {
+  const rows = parsePurchaseText("? PCS Inner tube BP-TUBE-1 0.00 54.00 540.00\n? Inner tube BP-TUBE-2 0.00 54.00 540.00", []);
+  assert.equal(rows.length, 2);
+  for (const row of rows) {
+    assert.equal(row.quantity, "");
+    assert.equal(row.description, "Inner tube");
+    assert.equal(row.unitPrice, "54.00");
+    assert.match(row.warning, /Quantity is missing/);
+  }
+});

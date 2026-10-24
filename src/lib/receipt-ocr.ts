@@ -1,4 +1,5 @@
 import { prepareReceiptImage } from "./receipt-image";
+import { receiptBarcodeIndex, receiptCell, receiptOriginalQuantity, receiptQuantityColumns, receiptRowBaseline } from "./receipt-table";
 
 export const maxReceiptSize = 20 * 1024 * 1024;
 export const receiptTypes = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
@@ -33,26 +34,30 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
     async function recognizePage(canvas: HTMLCanvasElement) {
       onProgress("Enhancing contrast and straightening the invoice...");
       const prepared = prepareReceiptImage(canvas);
+      let color: HTMLCanvasElement | undefined;
       try {
         signal.throwIfAborted();
         const { data } = await abortable(worker.recognize(prepared, {}, { text: true, blocks: true }), signal);
         const lines = data.blocks?.flatMap(block => block.paragraphs.flatMap(paragraph => paragraph.lines)) ?? [];
         // Read price cells independently so neighboring columns cannot alter their digits.
         if (!/\bbarcode\b/i.test(data.text) || !lines.length) return data.text;
+        const columns = receiptQuantityColumns(lines);
+        if (columns) color = prepareReceiptImage(canvas, true);
         const text: string[] = [];
         await abortable(worker.setParameters({ tessedit_char_whitelist: "0123456789.," }), signal);
         try {
           for (const line of lines) {
             signal.throwIfAborted();
             const words = line.words.map(word => ({ ...word }));
-            const barcodeIndex = words.findIndex((word, index) => /[A-Z0-9]+[-~][A-Z0-9]+/i.test(word.text) && /^\d+[.,]/.test(words[index + 1]?.text ?? ""));
+            const barcodeIndex = receiptBarcodeIndex(words);
             if (barcodeIndex >= 0 && words.length >= barcodeIndex + 4) {
               for (const cell of words.slice(barcodeIndex + 1, barcodeIndex + 3)) {
+                if (cell.confidence >= 85 && /^(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}$/.test(cell.text)) continue;
                 const padding = 12;
                 const left = Math.max(0, cell.bbox.x0 - padding), top = Math.max(0, cell.bbox.y0 - padding);
                 const candidates: { text: string; confidence: number }[] = [];
                 for (const mode of [PSM.SINGLE_LINE, PSM.SINGLE_WORD]) {
-                  await abortable(worker.setParameters({ tessedit_pageseg_mode: mode }), signal);
+                  await abortable(worker.setParameters({ tessedit_pageseg_mode: mode, tessedit_char_whitelist: "0123456789.," }), signal);
                   const { data: numeric } = await abortable(worker.recognize(prepared, { rectangle: {
                     left, top, width: Math.min(prepared.width, cell.bbox.x1 + padding) - left,
                     height: Math.min(prepared.height, cell.bbox.y1 + padding) - top,
@@ -63,6 +68,39 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
                 candidates.sort((a, b) => b.confidence - a.confidence);
                 cell.text = candidates[0]?.confidence >= 60 ? candidates[0].text : "?";
               }
+              const baseline = columns && receiptRowBaseline(words, columns.descriptionLeft, barcodeIndex);
+              if (columns && baseline) {
+                onProgress("Reading product quantities and descriptions...");
+                const descriptionWords = words.slice(0, barcodeIndex).filter(word => word.bbox.x0 >= columns.descriptionLeft);
+                const descriptionRight = Math.min(words[barcodeIndex].bbox.x0 - 15, Math.max(...descriptionWords.map(word => word.bbox.x1)) + 5);
+                const unit = [...columns.units].sort((a, b) => {
+                  const distance = (word: typeof a) => Math.abs(word.bbox.y1 - (baseline.intercept + baseline.slope * (word.bbox.x0 + word.bbox.x1) / 2));
+                  return distance(a) - distance(b);
+                })[0];
+                const unitDistance = unit.bbox.y1 - (baseline.intercept + baseline.slope * (unit.bbox.x0 + unit.bbox.x1) / 2);
+                const quantityBaseline = Math.abs(unitDistance) < baseline.height / 2 ? { ...baseline, intercept: baseline.intercept + unitDistance } : baseline;
+                const descriptionCell = receiptCell(prepared, columns.descriptionLeft, descriptionRight, baseline);
+                const quantityCell = receiptCell(color ?? prepared, 0, columns.quantityRight, quantityBaseline, true);
+                try {
+                  await abortable(worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE, tessedit_char_whitelist: "" }), signal);
+                  const { data: description } = await abortable(worker.recognize(descriptionCell), signal);
+                  const quantities: { text: string; confidence: number }[] = [];
+                  for (const mode of [PSM.SINGLE_LINE, PSM.SINGLE_WORD]) {
+                    await abortable(worker.setParameters({ tessedit_pageseg_mode: mode, tessedit_char_whitelist: "0123456789" }), signal);
+                    const { data: quantity } = await abortable(worker.recognize(quantityCell), signal);
+                    if (/^\d+$/.test(quantity.text.trim())) quantities.push({ text: quantity.text.trim(), confidence: quantity.confidence });
+                  }
+                  quantities.sort((a, b) => b.confidence - a.confidence);
+                  const quantity = quantities[0]?.confidence >= 60 ? quantities[0].text : receiptOriginalQuantity(words, barcodeIndex) || "?";
+                  const name = description.confidence >= 60 && description.text.trim()
+                    ? description.text.trim()
+                    : words.slice(0, barcodeIndex).filter(word => word.bbox.x0 >= columns.descriptionLeft).map(word => word.text).join(" ");
+                  text.push([quantity, name, ...words.slice(barcodeIndex).map(word => word.text)].join(" "));
+                  continue;
+                } finally {
+                  descriptionCell.width = descriptionCell.height = quantityCell.width = quantityCell.height = 0;
+                }
+              }
             }
             text.push(words.map(word => word.text).join(" "));
           }
@@ -70,7 +108,10 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
           if (!signal.aborted) await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK, tessedit_char_whitelist: "" });
         }
         return text.join("\n");
-      } finally { prepared.width = prepared.height = 0; }
+      } finally {
+        prepared.width = prepared.height = 0;
+        if (color) color.width = color.height = 0;
+      }
     }
     if (file.type !== "application/pdf") {
       const bitmap = await createImageBitmap(file);

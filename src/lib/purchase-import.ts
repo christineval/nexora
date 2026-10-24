@@ -17,9 +17,9 @@ const discountedRow = new RegExp(`^(.+?)\\s+(\\d+)\\s+(${amount})\\s+(${amount})
 const summary = /^(?:sub[\s-]*total|grand\s*total|total\b|tax\b|vat\b|disc(?:ount)?\.?\b|change\b|cash\b|amount\s+due|balance\b|nothing\s+follows)/i;
 
 // Barcodes and a discount column must not become part of the name or quantity.
-const codedRow = /^(.*?)\s+([A-Z0-9]+(?:[-~][A-Z0-9]+)+)\s+(.+)$/i;
+const codedRow = /^(.*?)\s+([A-Z0-9]+(?:[-~][A-Z0-9./]+)+)\s+((?:[\dOo]+[.,][\dOo?%¢]+|\?)\s+.+)$/i;
 const printedMoney = /^(?:PHP\s*|₱\s*)?((?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})$/i;
-const units = /^(?:(\d+)\s+)?(?:pcs?|pieces?|reams?|packs?|boxes?|bottles?|sets?)\s+/i;
+const units = /^(?:[^\p{L}\p{N}]*(\d+|\?)[\s()\[\]{}|/\\.,:;-]*)?(?:pcs?|pieces?|pairs?|reams?|packs?|boxes?|bottles?|sets?)\b[\s.,:;-]*/iu;
 
 function parseCodedRow(line: string) {
   const match = line.match(codedRow);
@@ -32,9 +32,10 @@ function parseCodedRow(line: string) {
   const price = values[1].match(printedMoney)?.[1].replaceAll(",", "") ?? "";
   const total = values.slice(2).join(" ").match(printedMoney)?.[1].replaceAll(",", "") ?? "";
   const unit = prefix.match(units);
+  const bareQuantity = prefix.match(/^(\d+|\?)\s+/);
   return {
-    description: unit ? prefix.slice(unit[0].length) : prefix.replace(/^\d+\s+/, ""),
-    quantity: unit?.[1] ?? prefix.match(/^(\d+)\s+/)?.[1] ?? "",
+    description: (unit ? prefix.slice(unit[0].length) : prefix.slice(bareQuantity?.[0].length ?? 0)).trim(),
+    quantity: unit?.[1] === "?" ? "" : unit?.[1] ?? (bareQuantity?.[1] === "?" ? "" : bareQuantity?.[1]) ?? "",
     price, total, barcode,
     discount: values[0].match(printedMoney)?.[1].replaceAll(",", "") ?? "",
   };

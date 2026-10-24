@@ -38,3 +38,16 @@ test("skew detection corrects tilted rows and leaves blank or straight pages alo
   assert.ok(Math.abs(receiptSkew(page(-10), width, height) + 10) <= 0.5);
   assert.ok(Math.abs(receiptSkew(page(8), width, height) - 8) <= 0.5);
 });
+
+test("pink highlighter backgrounds are removed while dark printed text is preserved", () => {
+  const width = 180, height = 90;
+  const pixels = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const index = (y * width + x) * 4;
+    const ink = x >= 70 && x < 76 && y >= 30 && y < 60;
+    pixels.set(ink ? [35, 25, 30, 255] : [250, 80, 175, 255], index);
+  }
+  thresholdReceipt(pixels, width, height);
+  assert.equal(pixels[(45 * width + 73) * 4], 0);
+  assert.equal(pixels[(45 * width + 40) * 4], 255);
+});

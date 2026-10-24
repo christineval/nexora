@@ -1,3 +1,9 @@
+function receiptInkGray(data: Uint8ClampedArray, index: number) {
+  const light = Math.max(data[index], data[index + 1], data[index + 2]);
+  // The lightest channel keeps colored highlighters from becoming dark ink.
+  return light;
+}
+
 // Local thresholding removes uneven lighting without treating a paper fold as ink.
 export function thresholdReceipt(data: Uint8ClampedArray, width: number, height: number, binary = true) {
   const stride = width + 1;
@@ -6,7 +12,7 @@ export function thresholdReceipt(data: Uint8ClampedArray, width: number, height:
     let row = 0;
     for (let x = 0; x < width; x++) {
       const index = (y * width + x) * 4;
-      const gray = Math.round(data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114);
+      const gray = receiptInkGray(data, index);
       row += gray;
       sums[(y + 1) * stride + x + 1] = sums[y * stride + x + 1] + row;
     }
@@ -18,7 +24,7 @@ export function thresholdReceipt(data: Uint8ClampedArray, width: number, height:
       const left = Math.max(0, x - radius), right = Math.min(width, x + radius + 1);
       const mean = (sums[bottom * stride + right] - sums[top * stride + right] - sums[bottom * stride + left] + sums[top * stride + left]) / ((right - left) * (bottom - top));
       const index = (y * width + x) * 4;
-      const gray = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114;
+      const gray = receiptInkGray(data, index);
       const value = binary ? (gray < mean - 14 ? 0 : 255) : Math.max(0, Math.min(255, 255 + (gray - mean - 4) * 3));
       data[index] = data[index + 1] = data[index + 2] = value;
       data[index + 3] = 255;
@@ -50,7 +56,7 @@ export function receiptSkew(data: Uint8ClampedArray, width: number, height: numb
   return bestScore > straightScore * 1.12 ? bestAngle : 0;
 }
 
-export function prepareReceiptImage(source: HTMLCanvasElement): HTMLCanvasElement {
+export function prepareReceiptImage(source: HTMLCanvasElement, retainColor = false): HTMLCanvasElement {
   const scale = 2800 / Math.max(source.width, source.height);
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(source.width * scale); canvas.height = Math.round(source.height * scale);
@@ -61,9 +67,11 @@ export function prepareReceiptImage(source: HTMLCanvasElement): HTMLCanvasElemen
   thresholdReceipt(pixels.data, canvas.width, canvas.height);
   const angle = receiptSkew(pixels.data, canvas.width, canvas.height) * Math.PI / 180;
   context.drawImage(source, 0, 0, canvas.width, canvas.height);
-  const enhanced = context.getImageData(0, 0, canvas.width, canvas.height);
-  thresholdReceipt(enhanced.data, canvas.width, canvas.height, false);
-  context.putImageData(enhanced, 0, 0);
+  if (!retainColor) {
+    const enhanced = context.getImageData(0, 0, canvas.width, canvas.height);
+    thresholdReceipt(enhanced.data, canvas.width, canvas.height, false);
+    context.putImageData(enhanced, 0, 0);
+  }
   if (!angle) return canvas;
   const rotated = document.createElement("canvas");
   rotated.width = Math.ceil(canvas.width * Math.cos(angle) + canvas.height * Math.abs(Math.sin(angle)));
