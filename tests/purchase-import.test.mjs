@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { loadTs } from "./load-ts.mjs";
-const { parsePurchaseText, matchImportProduct } = loadTs("src/lib/purchase-import.ts");
+const { parsePurchaseText, matchImportProduct, matchImportLine } = loadTs("src/lib/purchase-import.ts");
 const products = [
   { productId: "1", name: "Keyboard", sku: "P001", size: null, status: "ACTIVE" },
   { productId: "2", name: "Mouse", sku: "P002", size: null, status: "ACTIVE" },
@@ -57,14 +57,36 @@ GRAND TOTAL >> 877.00`, []);
 
 test("coded rows preserve explicit quantities and only exact active barcode matches", () => {
   const rows = parsePurchaseText("2 PCS Ink OS-INK20 0.00 1,200.50 2,401.00\n2 REAM Paper OS-PAPER20 10.00 155.00 300.00", [
-    { ...products[0], sku: "OS-INK20" },
+    { ...products[0], supplierProductCode: "OS-INK20" },
   ]);
   assert.equal(rows[0].quantity, "2");
   assert.equal(rows[0].description, "Ink");
   assert.equal(rows[0].productId, "1");
+  assert.equal(rows[0].supplierProductCode, "OS-INK20");
+  assert.equal(rows[0].matchStatus, "code");
   assert.equal(rows[0].unitPrice, "1200.50");
   assert.equal(rows[0].warning, "");
   assert.match(rows[1].warning, /discount/);
+});
+
+test("supplier codes take priority over names and internal SKUs without erasing punctuation", () => {
+  const catalog = [{ ...products[0], supplierProductCode: "BP-TBR-R" }, { ...products[1], supplierProductCode: "BPTBRR" }];
+  assert.equal(matchImportLine("Mouse", "BP-TBR-R", catalog).productId, "1");
+  assert.equal(matchImportLine("Unreadable", " BPTBRR ", catalog).productId, "2");
+  assert.equal(matchImportLine("Unreadable", "bp-tbr-r", catalog).productId, "");
+  assert.equal(matchImportLine("Keyboard", "UNKNOWN", catalog).matchStatus, "name");
+  assert.equal(matchImportLine("Unreadable", "P001", catalog).productId, "");
+  assert.equal(matchImportLine("Keyboard", "BP-TBR-R", [...catalog, { ...catalog[0], productId: "3" }]).matchStatus, "ambiguous");
+  assert.equal(matchImportLine("Unreadable", "BP-TBR-R", [{ ...catalog[0], status: "INACTIVE" }]).productId, "");
+});
+
+test("barcode headers accept plain, numeric and punctuation-bearing supplier codes", () => {
+  const rows = parsePurchaseText("QTY DESCRIPTIONS BARCODE DISC. UNIT PRICE TOTAL\n2 PCS Widget 001234 0.00 3.00 6.00\n1 PCS Other AB_cd/12.3 0.00 4.00 4.00", []);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].supplierProductCode, "001234");
+  assert.equal(rows[1].supplierProductCode, "AB_cd/12.3");
+  assert.equal(rows[0].description, "Widget");
+  assert.equal(parsePurchaseText("Barcode Scanner 2 3.00 6.00", [])[0].description, "Barcode Scanner");
 });
 
 test("damaged prices are not silently shifted or filled from invoice totals", () => {

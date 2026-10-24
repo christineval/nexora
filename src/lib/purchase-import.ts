@@ -3,6 +3,8 @@ import type { ProductRow } from "@/types/views";
 
 export type ImportedPurchaseLine = {
   description: string;
+  supplierProductCode: string;
+  matchStatus: "code" | "name" | "unmatched" | "ambiguous" | "confirmed";
   productId: string;
   quantity: string;
   unitPrice: string;
@@ -21,8 +23,8 @@ const codedRow = /^(.*?)\s+([A-Z0-9]+(?:[-~][A-Z0-9./]+)+)\s+((?:[\dOo]+[.,][\dO
 const printedMoney = /^(?:PHP\s*|₱\s*)?((?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})$/i;
 const units = /^(?:[^\p{L}\p{N}]*(\d+|\?)[\s()\[\]{}|/\\.,:;-]*)?(?:pcs?|pieces?|pairs?|reams?|packs?|boxes?|bottles?|sets?)\b[\s.,:;-]*/iu;
 
-function parseCodedRow(line: string) {
-  const match = line.match(codedRow);
+function parseCodedRow(line: string, hasBarcode: boolean) {
+  const match = line.match(hasBarcode ? /^(.*?)\s+(\S+)\s+((?:[\dOo]+[.,][\dOo?%¢]+|\?)(?:\s+\S+){2,4})$/i : codedRow);
   if (!match) return null;
   const [, prefix, barcode, columns] = match;
   const values = columns.trim().split(/\s+/);
@@ -51,19 +53,34 @@ export function matchImportProduct(description: string, products: ProductRow[]) 
   return matches.length === 1 ? matches[0].productId : "";
 }
 
+export function matchImportLine(description: string, supplierProductCode: string, products: ProductRow[]) {
+  const code = supplierProductCode.trim();
+  const active = products.filter(product => product.status === "ACTIVE");
+  if (code) {
+    // Preserve punctuation and case: changing either can identify a different supplier item.
+    const matches = active.filter(product => product.supplierProductCode?.trim() === code);
+    if (matches.length === 1) return { productId: matches[0].productId, matchStatus: "code" as const };
+    if (matches.length > 1) return { productId: "", matchStatus: "ambiguous" as const };
+  }
+  const productId = matchImportProduct(description, active);
+  return { productId, matchStatus: productId ? "name" as const : "unmatched" as const };
+}
+
 export function parsePurchaseText(text: string, products: ProductRow[]): ImportedPurchaseLine[] {
   const result: ImportedPurchaseLine[] = [];
   let hasTotal = true;
   let hasDiscount = false;
+  let hasBarcode = false;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim().replace(/[\t|]+/g, " ").replace(/\s+/g, " ");
     if (!line || summary.test(line.replace(/^[^\p{L}\p{N}]+/u, ""))) continue;
+    if (/^barcode$/i.test(line) || (/\bbarcode\b/i.test(line) && /\b(?:descriptions?|qty|quantity|disc\.?|price|total)\b/i.test(line))) { hasBarcode = true; continue; }
     if (/\b(?:description[s]?|product[s]?|item[s]?)\b/i.test(line) && /\b(?:qty|quantity)\b/i.test(line) && /\bprice\b/i.test(line)) {
       hasTotal = /\btotal\b/i.test(line);
       hasDiscount = /\bdisc(?:ount)?\.?/i.test(line);
       continue;
     }
-    const coded = parseCodedRow(line);
+    const coded = parseCodedRow(line, hasBarcode);
     const discounted = hasDiscount && !coded ? line.match(discountedRow) : null;
     const priceOnly = !hasTotal && !hasDiscount ? line.match(priceOnlyRow) : null;
     const trailing = line.match(rowPattern);
@@ -75,7 +92,8 @@ export function parsePurchaseText(text: string, products: ProductRow[]): Importe
       : priceOnly ? ["", priceOnly[1], priceOnly[2], priceOnly[3], ""]
       : trailing ?? ["", leading![2], leading![1], leading![3], leading![4]];
     const unitPrice = price.replaceAll(",", "");
-    const productId = (coded && matchImportProduct(coded.barcode, products)) || matchImportProduct(description, products);
+    const supplierProductCode = coded?.barcode ?? "";
+    const { productId, matchStatus } = matchImportLine(description, supplierProductCode, products);
     const warnings = [];
     if (!productId) warnings.push("Select the matching product.");
     if (!quantity) warnings.push("Quantity is missing or unreadable. Enter it from the invoice.");
@@ -85,7 +103,7 @@ export function parsePurchaseText(text: string, products: ProductRow[]): Importe
     if (coded && (!coded.discount || toMinorUnits(coded.discount) !== 0n)) warnings.push("Check the printed discount and line total.");
     if (discounted && toMinorUnits(discounted[3].replaceAll(",", "")) !== 0n) warnings.push("Check the printed discount and line total.");
     if (quantity && unitPrice && total && toMinorUnits(unitPrice) * BigInt(quantity) !== toMinorUnits(total.replaceAll(",", ""))) warnings.push("Quantity × unit price differs from the printed line total.");
-    result.push({ description, productId, quantity, unitPrice, warning: warnings.join(" ") });
+    result.push({ description, supplierProductCode, matchStatus, productId, quantity, unitPrice, warning: warnings.join(" ") });
   }
   return result;
 }

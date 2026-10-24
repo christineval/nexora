@@ -3,7 +3,9 @@ export type ReceiptLine = { text: string; words: ReceiptWord[] };
 export type ReceiptBaseline = { slope: number; intercept: number; height: number };
 
 export function receiptBarcodeIndex(words: ReceiptWord[]) {
-  return words.findIndex((word, index) => /^[A-Z0-9]+(?:[-~][A-Z0-9./]+)+$/i.test(word.text) && /^[\dOo]+[.,]/.test(words[index + 1]?.text ?? ""));
+  return words.findIndex((word, index) => /[A-Z0-9]/i.test(word.text) && !/\s/.test(word.text) && index > 0
+    && (words.length === index + 4 || /^[A-Z0-9]+(?:[-~][A-Z0-9./]+)+$/i.test(word.text))
+    && words.length >= index + 4 && /^[\dOo]+[.,]/.test(words[index + 1]?.text ?? ""));
 }
 
 export function receiptOriginalQuantity(words: ReceiptWord[], barcodeIndex: number) {

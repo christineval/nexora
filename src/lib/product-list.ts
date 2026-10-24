@@ -6,7 +6,7 @@ export interface ProductFilters { query: string; status: string; stock: StockFil
 export function filterProducts(rows: ProductRow[], { query, status, stock }: ProductFilters) {
   const search = query.trim().toLocaleLowerCase();
   return rows.filter((product) => {
-    const matchesSearch = !search || [product.sku, product.name, product.size ?? ""].some((value) => value.toLocaleLowerCase().includes(search));
+    const matchesSearch = !search || [product.sku, product.supplierProductCode ?? "", product.name, product.size ?? ""].some((value) => value.toLocaleLowerCase().includes(search));
     const matchesStatus = !status || product.status === status;
     const matchesStock = stock === "all" || (stock === "in-stock" && product.stockQty > 10) || (stock === "low-stock" && product.stockQty > 0 && product.stockQty <= 10) || (stock === "out-of-stock" && product.stockQty === 0);
     return matchesSearch && matchesStatus && matchesStock;

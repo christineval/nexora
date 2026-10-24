@@ -18,14 +18,22 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
   if (!file.size || file.size > maxReceiptSize) throw new Error("Choose a non-empty file smaller than 20 MB.");
   const { createWorker, PSM } = await import("tesseract.js");
   signal.throwIfAborted();
+  let recognizingPage = false;
+  let workerReady = false;
+  let pageLabel = "Invoice";
   const creatingWorker = createWorker("eng", 1, {
     workerPath: "/ocr/worker.min.js", corePath: "/ocr/core", langPath: "/ocr/lang",
-    logger: message => { if (!signal.aborted) onProgress(`${message.status}: ${Math.round(message.progress * 100)}%`); },
+    logger: message => {
+      if (signal.aborted) return;
+      if (recognizingPage && message.status === "recognizing text") onProgress(`${pageLabel}: recognizing text ${Math.min(100, Math.max(0, Math.round(message.progress * 100)))}% (recognition stage)`);
+      else if (!workerReady) onProgress("Preparing OCR engine...");
+    },
     errorHandler: () => {},
   });
   // A worker still loading at cancellation must be released once initialization finishes.
   void creatingWorker.then(worker => { if (signal.aborted) void worker.terminate(); }, () => {});
   const worker = await abortable(creatingWorker, signal);
+  workerReady = true;
   const stop = () => { void worker.terminate(); };
   signal.addEventListener("abort", stop, { once: true });
   try {
@@ -37,7 +45,9 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
       let color: HTMLCanvasElement | undefined;
       try {
         signal.throwIfAborted();
+        recognizingPage = true;
         const { data } = await abortable(worker.recognize(prepared, {}, { text: true, blocks: true }), signal);
+        recognizingPage = false;
         const lines = data.blocks?.flatMap(block => block.paragraphs.flatMap(paragraph => paragraph.lines)) ?? [];
         // Read price cells independently so neighboring columns cannot alter their digits.
         if (!/\bbarcode\b/i.test(data.text) || !lines.length) return data.text;
@@ -46,11 +56,23 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
         const text: string[] = [];
         await abortable(worker.setParameters({ tessedit_char_whitelist: "0123456789.," }), signal);
         try {
-          for (const line of lines) {
+          for (const [lineIndex, line] of lines.entries()) {
             signal.throwIfAborted();
+            const rowProgress = () => onProgress(`${pageLabel}: checking rows ${lineIndex + 1} of ${lines.length} (${Math.round((lineIndex + 1) / lines.length * 100)}% of row review)`);
             const words = line.words.map(word => ({ ...word }));
             const barcodeIndex = receiptBarcodeIndex(words);
             if (barcodeIndex >= 0 && words.length >= barcodeIndex + 4) {
+              const code = words[barcodeIndex];
+              if (code.confidence < 90) {
+                await abortable(worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE, tessedit_char_whitelist: "" }), signal);
+                const left = Math.max(0, code.bbox.x0 - 8), top = Math.max(0, code.bbox.y0 - 8);
+                const { data: reread } = await abortable(worker.recognize(prepared, { rectangle: {
+                  left, top, width: Math.min(prepared.width, code.bbox.x1 + 8) - left,
+                  height: Math.min(prepared.height, code.bbox.y1 + 8) - top,
+                } }), signal);
+                const value = reread.text.trim();
+                if (/^\S+$/.test(value) && reread.confidence > code.confidence) code.text = value;
+              }
               for (const cell of words.slice(barcodeIndex + 1, barcodeIndex + 3)) {
                 if (cell.confidence >= 85 && /^(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}$/.test(cell.text)) continue;
                 const padding = 12;
@@ -96,6 +118,7 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
                     ? description.text.trim()
                     : words.slice(0, barcodeIndex).filter(word => word.bbox.x0 >= columns.descriptionLeft).map(word => word.text).join(" ");
                   text.push([quantity, name, ...words.slice(barcodeIndex).map(word => word.text)].join(" "));
+                  rowProgress();
                   continue;
                 } finally {
                   descriptionCell.width = descriptionCell.height = quantityCell.width = quantityCell.height = 0;
@@ -103,6 +126,7 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
               }
             }
             text.push(words.map(word => word.text).join(" "));
+            rowProgress();
           }
         } finally {
           if (!signal.aborted) await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK, tessedit_char_whitelist: "" });
@@ -125,6 +149,7 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
         context.drawImage(bitmap, 0, 0);
         const text = await recognizePage(canvas);
         signal.throwIfAborted();
+        onProgress("Invoice extraction complete: 100%");
         canvas.width = canvas.height = 0;
         return text;
       } finally { bitmap.close(); }
@@ -141,6 +166,7 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
       for (let index = 1; index <= pdf.numPages; index++) {
         signal.throwIfAborted();
         onProgress(`Reading PDF page ${index} of ${pdf.numPages}`);
+        pageLabel = `PDF page ${index} of ${pdf.numPages}`;
         const page = await pdf.getPage(index);
         const viewport = page.getViewport({ scale: 2 });
         if (viewport.width * viewport.height > 24000000) throw new Error("This PDF page is too large to read. Export it at a smaller size.");
@@ -151,6 +177,7 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
         canvas.width = 0; canvas.height = 0;
         page.cleanup();
       }
+      onProgress("Invoice extraction complete: 100%");
       return pages.join("\n\n");
     } finally {
       signal.removeEventListener("abort", abortPdf);

@@ -95,6 +95,7 @@ model orders {
 model products {
   id                  BigInt                @id @default(autoincrement())
   sku                 String                @unique @db.VarChar(50)
+  supplier_product_code String?             @db.VarChar(150)
   name                String                @db.VarChar(150)
   size                String?               @db.VarChar(50)
   stock_qty           Int                   @default(0)

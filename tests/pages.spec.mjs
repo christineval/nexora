@@ -59,6 +59,22 @@ test("customer contact numbers accept digits only in create and edit forms", asy
   expect(invalid.status()).toBe(400);
 });
 
+async function readInvoice(page, dialog, text) {
+  test.setTimeout(120000);
+  const image = await page.evaluate(value => {
+    const rows = value.split("\n");
+    const canvas = document.createElement("canvas"); canvas.width = 3000; canvas.height = 140 + rows.length * 90;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "white"; context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "black"; context.font = "32px monospace";
+    rows.forEach((line, index) => context.fillText(line, 50, 90 + index * 90));
+    return canvas.toDataURL("image/png").split(",")[1];
+  }, text);
+  await dialog.getByLabel("Receipt or invoice file", { exact: true }).setInputFiles({ name: "invoice.png", mimeType: "image/png", buffer: Buffer.from(image, "base64") });
+  await dialog.getByRole("button", { name: "Read with OCR", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Read with OCR", exact: true })).toBeEnabled({ timeout: 90000 });
+}
+
 function invoicePdf() {
   const stream = "BT /F1 20 Tf 40 750 Td (INVOICE) Tj 0 -40 Td (Keyboard 3 0.10 0.30) Tj 0 -40 Td (Mouse 2 1.20 2.40) Tj ET";
   const objects = [
@@ -105,10 +121,10 @@ test("purchase import reads images and PDFs locally and reviews many products wi
     const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
     await dialog.getByLabel("Receipt or invoice file", { exact: true }).setInputFiles(file);
     await dialog.getByRole("button", { name: "Read with OCR", exact: true }).click();
-    await expect(dialog.getByLabel("Extracted invoice text", { exact: true })).toHaveValue(/Keyboard/, { timeout: 90000 });
+    await expect(dialog.getByRole("textbox", { name: "Product name 1", exact: true })).toHaveValue(/Keyboard/, { timeout: 90000 });
     await expect(dialog.getByRole("heading", { name: "Review products (2)", exact: true })).toBeVisible();
     await expect(dialog.getByRole("spinbutton", { name: "Quantity 1", exact: true })).toHaveValue("3");
-    await expect(dialog.getByRole("spinbutton", { name: "Invoice unit price 1 (reference)", exact: true })).toHaveValue("0.10");
+    await expect(dialog.getByRole("spinbutton", { name: "Unit cost 1 (PHP)", exact: true })).toHaveValue("0.10");
     const supplier = dialog.getByRole("combobox", { name: "Supplier", exact: true });
     const supplierId = await supplier.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
     await supplier.selectOption(supplierId);
@@ -165,8 +181,8 @@ test("highlighted invoice OCR separates numeric quantities from units and produc
   await expect(dialog.getByRole("heading", { name: "Review products (3)", exact: true })).toBeVisible({ timeout: 90000 });
   for (const [index, quantity, price, description] of [[1, "3", "65.00", "PEDAL PLASTIC 1/2"], [2, "10", "40.00", "HANDLE GRIP BLACK"], [3, "5", "151.00", "TIRE LEO 26 X 1 3/8"]]) {
     await expect(dialog.getByRole("spinbutton", { name: `Quantity ${index}`, exact: true })).toHaveValue(quantity);
-    await expect(dialog.getByRole("spinbutton", { name: `Invoice unit price ${index} (reference)`, exact: true })).toHaveValue(price);
-    await expect(dialog.getByLabel(`Invoice description ${index}`, { exact: true })).toHaveValue(description);
+    await expect(dialog.getByRole("spinbutton", { name: `Unit cost ${index} (PHP)`, exact: true })).toHaveValue(price);
+    await expect(dialog.getByRole("textbox", { name: `Product name ${index}`, exact: true })).toHaveValue(description);
   }
 });
 
@@ -174,19 +190,24 @@ test("invoice review separates coded product rows and requires missing quantitie
   await page.goto("/purchasing");
   await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
-  await expect(dialog.getByLabel("Extracted invoice text", { exact: true })).not.toBeVisible();
-  await dialog.getByText("View or paste invoice text", { exact: true }).click();
-  await dialog.getByLabel("Extracted invoice text", { exact: true }).fill("DESCRIPTIONS BARCODE DISC. UNIT PRICE TOTAL\nPCS EPSON INK REFILL 65ML 003 T00V L-EIR65-T00V1 0.00 340.00 340.00\nREAM HARD COPY PAPER SUBS 20 A4 PR OS-HCP20A4 0.00 155.00 310.00\nSUB-TOTAL >> 650.00");
-  await dialog.getByRole("button", { name: "Extract product lines", exact: true }).click();
+  await expect(dialog.getByText("View or paste invoice text", { exact: true })).toHaveCount(0);
+  await readInvoice(page, dialog, "DESCRIPTIONS BARCODE DISC. UNIT PRICE TOTAL\nPCS EPSON INK REFILL 65ML 003 T00V L-EIR65-T00V1 0.00 340.00 340.00\nREAM HARD COPY PAPER SUBS 20 A4 PR OS-HCP20A4 0.00 155.00 310.00\nSUB-TOTAL >> 650.00");
+
   await expect(dialog.getByRole("heading", { name: "Review products (2)", exact: true })).toBeVisible();
-  await expect(dialog.getByLabel("Invoice description 1", { exact: true })).toHaveValue("EPSON INK REFILL 65ML 003 T00V");
-  await expect(dialog.getByLabel("Invoice unit price 1 (reference)", { exact: true })).toHaveValue("340.00");
+  await expect(dialog.getByRole("textbox", { name: "Product name 1", exact: true })).toHaveValue("EPSON INK REFILL 65ML 003 T00V");
+  await expect(dialog.getByRole("spinbutton", { name: "Unit cost 1 (PHP)", exact: true })).toHaveValue("340.00");
+  await expect(dialog.getByLabel("Supplier product code 1", { exact: true })).toHaveValue("L-EIR65-T00V1");
+  await dialog.getByRole("button", { name: "New only (2)", exact: true }).click();
+  await expect(dialog.getByRole("textbox", { name: "Product name 1", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Needs review (2)", exact: true }).click();
+  await expect(dialog.getByRole("textbox", { name: "Product name 2", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "All items (2)", exact: true }).click();
   await expect(dialog.getByLabel(/^Quantity\ 1\s*\*?$/, { exact: true })).toHaveValue("");
   await expect(dialog.getByText("Quantity is missing or unreadable.", { exact: false })).toHaveCount(2);
   await dialog.getByLabel(/^Quantity\ 1\s*\*?$/, { exact: true }).fill("1");
   await expect(dialog.getByText("Quantity is missing or unreadable.", { exact: false })).toHaveCount(1);
-  await dialog.getByLabel("Invoice description 1", { exact: true }).fill("Corrected invoice description");
-  await expect(dialog.getByLabel("Invoice description 1", { exact: true })).toHaveValue("Corrected invoice description");
+  await dialog.getByRole("textbox", { name: "Product name 1", exact: true }).fill("Corrected invoice description");
+  await expect(dialog.getByRole("textbox", { name: "Product name 1", exact: true })).toHaveValue("Corrected invoice description");
   await dialog.getByRole("checkbox").check();
   await expect(dialog.getByRole("button", { name: "Create pending purchase", exact: true })).toBeDisabled();
 });
@@ -201,18 +222,17 @@ test("invoice import reviews new and existing products together and submits one 
   await page.goto("/purchasing");
   await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
-  await dialog.getByText("View or paste invoice text", { exact: true }).click();
-  await dialog.getByLabel("Extracted invoice text", { exact: true }).fill("New store item 2 10.25 20.50\nExisting store item 3 1.00 3.00");
-  await dialog.getByRole("button", { name: "Extract product lines", exact: true }).click();
+  await readInvoice(page, dialog, "New store item 2 10.25 20.50\nExisting store item 3 1.00 3.00");
+
   await dialog.getByRole("combobox", { name: "Matched product 1", exact: true }).selectOption("new");
-  await expect(dialog.getByLabel(/^New\ product\ name\ 1\s*\*?$/, { exact: true })).toHaveValue("New store item");
-  await expect(dialog.getByLabel(/^New\ product\ unit\ cost\ 1\s*\*?$/, { exact: true })).toHaveValue("10.25");
-  await expect(dialog.getByLabel(/^New\ product\ selling\ price\ 1\s*\*?$/, { exact: true })).toHaveValue("");
+  await expect(dialog.getByLabel(/^Product\ name\ 1\s*\*?$/, { exact: true })).toHaveValue("New store item");
+  await expect(dialog.getByLabel(/^Unit\ cost\ 1\ \(PHP\)\s*\*?$/, { exact: true })).toHaveValue("10.25");
+  await expect(dialog.getByLabel(/^Selling\ price\ 1\ \(PHP\)\s*\*?$/, { exact: true })).toHaveValue("");
   await dialog.getByRole("checkbox").check();
   await expect(dialog.getByRole("button", { name: "Create pending purchase", exact: true })).toBeDisabled();
-  await dialog.getByLabel(/^New\ product\ selling\ price\ 1\s*\*?$/, { exact: true }).fill("15.00");
+  await dialog.getByLabel(/^Selling\ price\ 1\ \(PHP\)\s*\*?$/, { exact: true }).fill("15.00");
   await expect(dialog.getByRole("checkbox")).not.toBeChecked();
-  await dialog.getByLabel("New product size 1", { exact: true }).fill("Small");
+  await dialog.getByLabel("Size 1", { exact: true }).fill("Small");
   const existing = dialog.getByRole("combobox", { name: "Matched product 2", exact: true });
   const id = await existing.locator("option").evaluateAll(options => options.find(option => /^\d+$/.test(option.value))?.value);
   await existing.selectOption(id);
@@ -224,13 +244,13 @@ test("invoice import reviews new and existing products together and submits one 
   await expect(dialog.getByRole("button", { name: "Create pending purchase", exact: true })).toBeEnabled();
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    await dialog.getByLabel(/^New\ product\ name\ 1\s*\*?$/, { exact: true }).scrollIntoViewIfNeeded();
+    await dialog.getByLabel(/^Product\ name\ 1\s*\*?$/, { exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: `test-results/purchase-new-product-${width}.png`, fullPage: true });
   }
   await dialog.getByRole("button", { name: "Create pending purchase", exact: true }).click();
   await expect.poll(() => submitted.length).toBe(1);
   expect(submitted[0].items).toEqual([
-    { newProduct: { name: "New store item", size: "Small", unitCost: "10.25", sellingPrice: "15.00" }, quantity: 2 },
+    { newProduct: { name: "New store item", supplierProductCode: "", size: "Small", unitCost: "10.25", sellingPrice: "15.00" }, quantity: 2 },
     { productId: id, quantity: 3 },
   ]);
   await expect(dialog).not.toBeVisible();
@@ -243,13 +263,11 @@ test("closing invoice import discards unsaved data through the close button and 
   for (const closeWithEscape of [false, true]) {
     await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
     const initialDate = await dialog.getByLabel(/^Purchase\ date\s*\*?$/, { exact: true }).inputValue();
-    const details = dialog.locator("details");
-    if (!(await details.evaluate(element => element.open))) await details.locator("summary").click();
     await dialog.getByLabel("Receipt or invoice file", { exact: true }).setInputFiles({ name: "invoice.png", mimeType: "image/png", buffer: Buffer.from("selected file") });
-    await dialog.getByLabel("Extracted invoice text", { exact: true }).fill("Unsaved product 2 10.00 20.00");
-    await dialog.getByRole("button", { name: "Extract product lines", exact: true }).click();
+    await readInvoice(page, dialog, "Unsaved product 2 10.00 20.00");
+
     await dialog.getByRole("combobox", { name: "Matched product 1", exact: true }).selectOption("new");
-    await dialog.getByLabel(/^New\ product\ selling\ price\ 1\s*\*?$/, { exact: true }).fill("15.00");
+    await dialog.getByLabel(/^Selling\ price\ 1\ \(PHP\)\s*\*?$/, { exact: true }).fill("15.00");
     const supplier = dialog.getByRole("combobox", { name: "Supplier", exact: true });
     const supplierId = await supplier.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
     await supplier.selectOption(supplierId);
@@ -260,7 +278,7 @@ test("closing invoice import discards unsaved data through the close button and 
     await expect(dialog).not.toBeVisible();
     await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
     await expect(dialog.getByLabel("Receipt or invoice file", { exact: true })).toHaveValue("");
-    await expect(dialog.getByLabel("Extracted invoice text", { exact: true })).toHaveValue("");
+    await expect(dialog.getByLabel("Extracted invoice text", { exact: true })).toHaveCount(0);
     await expect(dialog.getByRole("heading", { name: "Review products (0)", exact: true })).toBeVisible();
     await expect(supplier).toHaveValue("");
     await expect(dialog.getByLabel(/^Purchase\ date\s*\*?$/, { exact: true })).toHaveValue(initialDate);

@@ -13,7 +13,7 @@ type AuditEvent = {
 };
 
 // Only business fields enter history. Credentials and contact details are never serialized.
-const fields = new Set(["id", "name", "role", "sku", "size", "status", "stock_qty", "unit_cost", "selling_price", "customer_id", "supplier_id", "order_date", "purchase_date", "subtotal", "tax", "total_amount", "order_items", "purchase_items", "product_id", "quantity", "unit_price", "line_total", "type", "reference_type", "reference_id", "account_name", "entry_type", "amount", "module", "operation", "reason", "changed_fields", "session_count"]);
+const fields = new Set(["id", "name", "role", "sku", "supplier_product_code", "size", "status", "stock_qty", "unit_cost", "selling_price", "customer_id", "supplier_id", "order_date", "purchase_date", "subtotal", "tax", "total_amount", "order_items", "purchase_items", "product_id", "quantity", "unit_price", "line_total", "type", "reference_type", "reference_id", "account_name", "entry_type", "amount", "module", "operation", "reason", "changed_fields", "session_count"]);
 export function auditSnapshot(value: unknown): Prisma.InputJsonValue | null {
   if (value === undefined || value === null) return null;
   if (typeof value === "bigint") return value.toString();

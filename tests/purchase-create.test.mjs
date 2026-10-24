@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { loadTs } from "./load-ts.mjs";
 
 const actor = { id: 2n, name: "Inventory user", role: "INVENTORY" };
-const newProduct = { name: "New ink", size: "65ml", unitCost: "0.10", sellingPrice: "0.25" };
+const newProduct = { name: "New ink", supplierProductCode: "SUP-INK/001", size: "65ml", unitCost: "0.10", sellingPrice: "0.25" };
 const input = { partyId: "1", date: "2026-10-21", items: [{ productId: "1", quantity: 3 }, { newProduct, quantity: 2 }] };
 const { purchaseCreateSchema } = loadTs("src/validations/purchase-create.schema.ts");
 
@@ -59,6 +59,7 @@ test("mixed purchases create zero-stock products with generated SKUs and link al
   assert.equal(state.products.length, 2);
   const added = state.products[1];
   assert.equal(added.name, "New ink");
+  assert.equal(added.supplier_product_code, "SUP-INK/001");
   assert.equal(added.sku, "ERP-0001");
   assert.equal(added.stock_qty, 0);
   assert.equal(added.status, "ACTIVE");
@@ -106,6 +107,7 @@ test("mixed purchase validation rejects ambiguous lines, duplicates, missing pri
     [{ newProduct: { ...newProduct, sellingPrice: "" }, quantity: 1 }],
     [{ newProduct: { ...newProduct, unitCost: "0.001" }, quantity: 1 }],
     [{ newProduct: { ...newProduct, name: " " }, quantity: 1 }],
+    [{ newProduct: { ...newProduct, supplierProductCode: "X".repeat(151) }, quantity: 1 }],
     [{ productId: "1", quantity: 1 }, { productId: "1", quantity: 2 }],
     [{ newProduct, quantity: 1 }, { newProduct: { ...newProduct, name: " NEW INK " }, quantity: 1 }],
   ];
@@ -115,7 +117,7 @@ test("mixed purchase validation rejects ambiguous lines, duplicates, missing pri
 
 test("browser-supplied stock, status and SKU cannot override new product creation rules", async () => {
   const state = harness();
-  await state.service.createTransaction("purchasing", { ...input, items: [{ newProduct: { ...newProduct, sku: "TAMPERED", stock_qty: 100, stockQty: 100, status: "INACTIVE" }, quantity: 2 }] }, actor);
+  await state.service.createTransaction("purchasing", { ...input, items: [{ newProduct: { ...newProduct, sku: "TAMPERED", stock_qty: 100, stockQty: 100, quantity: 100, status: "INACTIVE" }, quantity: 2 }] }, actor);
   assert.equal(state.products[1].sku, "ERP-0001");
   assert.equal(state.products[1].stock_qty, 0);
   assert.equal(state.products[1].status, "ACTIVE");
