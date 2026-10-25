@@ -11,7 +11,7 @@ function harness(failure) {
   const tx = {
     async $queryRaw() { return [{ sku: "ERP-0001" }]; },
     users: { async findUnique() { return { id: 2n, name: "Inventory", role: "INVENTORY" }; } },
-    products: { async create({ data }) { const product = { ...data, id: 10n }; products.push(product); return product; } },
+    products: { async findMany({ where }) { return products.filter(product => product.id !== where.id?.not); }, async create({ data }) { const product = { ...data, id: 10n }; products.push(product); return product; } },
     inventory_movements: { async create({ data }) {
       if (failure === "movement") throw new Error("Movement failed");
       const movement = { ...data, id: 20n }; movements.push(movement); return movement;

@@ -13,8 +13,8 @@ export default async function Products({ searchParams }: { searchParams: Promise
   return <section aria-labelledby="products-heading">
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
       <div><h1 id="products-heading" className="text-2xl font-bold tracking-tight">Products</h1><p className="mt-1 text-sm text-slate-500 dark:text-neutral-400">Manage your product inventory</p></div>
-      {canEdit && <AddProductModal nextSku={nextSku} />}
+      {(canEdit || user.role === "GUEST") && <AddProductModal nextSku={nextSku} products={rows} />}
     </div>
-    <ProductTable key={query} rows={rows} initialQuery={query} canEdit={canEdit} />
+    <ProductTable key={query} rows={rows} initialQuery={query} canEdit={canEdit} canDelete={user.role === "ADMIN"} />
   </section>;
 }

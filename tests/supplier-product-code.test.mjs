@@ -3,10 +3,11 @@ import { test } from "node:test";
 import { loadTs } from "./load-ts.mjs";
 
 test("product edits persist and clear arbitrary supplier codes, preserve SKU and stock, and record code changes in audit history", async () => {
-  let row = { id: 1n, sku: "ERP-0001", supplier_product_code: null, stock_qty: 7 };
+  let row = { id: 1n, sku: "ERP-0001", supplier_product_code: null, stock_qty: 7, status: "ACTIVE" };
   const audits = [];
   const tx = {
     products: {
+      async findMany({ where }) { return row.id === where.id?.not ? [] : [row]; },
       async findUnique() { return { ...row }; },
       async update({ data }) {
         assert.equal(data.sku, undefined);

@@ -14,8 +14,10 @@ function loadService(skus) {
   runInNewContext(outputText, {
     exports,
     require(name) {
+      if (name === "@/server/record-duplicates") return {};
       if (name === "server-only" || name === "@/server/audit") return {};
       if (name === "@/lib/not-implemented") return {};
+      if (name === "@/lib/errors") return {};
       if (name === "@/validations/product.schema" || name === "@/validations/shared") return {};
       if (name === "@/lib/prisma") return {
         prisma: { products: { async findMany(query) {

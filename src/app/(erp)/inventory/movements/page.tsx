@@ -13,7 +13,7 @@ export default async function InventoryMovements() {
     <header className="mb-6 flex flex-wrap items-center justify-between gap-4"><div>
       <h1 id="movements-heading" className="text-2xl font-bold tracking-tight">Inventory Movements</h1>
       <p className="mt-1 text-sm text-slate-500 dark:text-neutral-400">Track all inventory changes</p>
-    </div>{canWrite(user.role, "inventory") && <AdjustStockModal products={products} />}</header>
+    </div>{(canWrite(user.role, "inventory") || user.role === "GUEST") && <AdjustStockModal products={products} />}</header>
     <MovementTable rows={rows} />
   </section>;
 }

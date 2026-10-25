@@ -1,4 +1,5 @@
 "use client";
+import { useGuestPreview } from "@/components/ui/GuestPreviewProvider";
 import FormLabel from "@/components/ui/FormLabel";
 import { useId, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
@@ -9,13 +10,20 @@ import { formatCurrency } from "@/lib/utils";
 import type { ProductRow } from "@/types/views";
 import type { ContactRow, TransactionRow } from "@/types/features";
 import type { TransactionInput } from "@/validations/shared";
-import type { OrderInput } from "@/validations/order.schema";
+import { orderSchema, type OrderInput } from "@/validations/order.schema";
+import { transactionSchema } from "@/validations/shared";
+import { useNotifications } from "@/components/ui/SnackbarProvider";
+import { validationMessages } from "@/lib/validation-errors";
+import { normalizeIdentity } from "@/lib/record-identity";
 
 export default function TransactionForm({ kind, parties, products, saving, onSubmit, initialRow }: { kind: "sales" | "purchasing"; parties: ContactRow[]; products: ProductRow[]; saving: boolean; onSubmit: (data: TransactionInput | OrderInput) => void; initialRow?: TransactionRow }) {
+  const isGuest = useGuestPreview();
+  const { notify } = useNotifications();
   const customerTabsId = useId();
   const [customerMode, setCustomerMode] = useState<"walk-in" | "registered">("registered");
   const [walkInName, setWalkInName] = useState("");
   const walkIn = kind === "sales" && customerMode === "walk-in";
+  const duplicateCustomer = walkIn && parties.some(party => normalizeIdentity(party.name) === normalizeIdentity(walkInName));
   const [lines, setLines] = useState(initialRow ? initialRow.items.map((item, key) => ({ key, productId: item.productId, quantity: item.quantity })) : [{ key: 0, productId: "", quantity: 1 }]);
   const [nextKey, setNextKey] = useState(initialRow?.items.length ?? 1);
   const [partyId, setPartyId] = useState(initialRow?.partyId ?? "");
@@ -26,8 +34,14 @@ export default function TransactionForm({ kind, parties, products, saving, onSub
   function change(key: number, field: "productId" | "quantity", value: string) { setLines(current => current.map(line => line.key === key ? { ...line, [field]: field === "quantity" ? Number(value) : value } : line)); }
   
   return <form className="mt-5 space-y-5" onSubmit={event => {
-    event.preventDefault(); const data = new FormData(event.currentTarget);
-    onSubmit({ ...(walkIn ? { walkInCustomer: { name: walkInName.trim() } } : { partyId }), date: String(data.get("date")), items: lines.map(line => ({ productId: line.productId, quantity: line.quantity })) });
+    event.preventDefault(); if (isGuest) return; const data = new FormData(event.currentTarget);
+    const result = (kind === "sales" ? orderSchema : transactionSchema).safeParse({ ...(walkIn ? { walkInCustomer: { name: walkInName.trim() } } : { partyId }), date: String(data.get("date")), items: lines.map(line => ({ productId: line.productId, quantity: line.quantity })) });
+    if (!result.success) { notify(validationMessages(result.error.issues, "Line")[0], "error"); return; }
+    if (duplicateCustomer) { notify("A customer with this name already exists. Select Registered Customers to use the existing record.", "error"); return; }
+    if (total <= 0 || total > 9999999999.99) { notify("The total must be positive and cannot exceed PHP 9,999,999,999.99.", "error"); return; }
+    if (!walkIn && !parties.some(party => party.id === partyId && party.status === "ACTIVE")) { notify("Select an active " + (kind === "sales" ? "customer." : "supplier."), "error"); return; }
+    for (const line of lines) { const product = active.find(product => product.productId === line.productId); if (!product || (kind === "sales" && line.quantity > product.stockQty)) { notify(product ? `Insufficient stock for ${product.name}. Available: ${product.stockQty}.` : "Select active products for every line.", "error"); return; } }
+    onSubmit(result.data);
   }}><fieldset disabled={saving} className="space-y-5">
     {kind === "sales" && <div role="tablist" aria-label="Customer type" className="flex w-fit max-w-full rounded-full bg-slate-100 p-1 dark:bg-neutral-800">
       {(["walk-in", "registered"] as const).map(mode => <button
@@ -49,6 +63,7 @@ export default function TransactionForm({ kind, parties, products, saving, onSub
     <div id={kind === "sales" ? customerTabsId + "-panel" : undefined} role={kind === "sales" ? "tabpanel" : undefined} aria-labelledby={kind === "sales" ? customerTabsId + "-" + customerMode : undefined} className="space-y-4">
     <div className="grid gap-4 sm:grid-cols-2">{walkIn ? <FormLabel label="Customer name" required className="grid gap-1.5 text-sm"><input required maxLength={150} className={control} value={walkInName} onChange={event => setWalkInName(event.target.value)} /></FormLabel> : <FormLabel label={(kind === "sales" ? "Customer" : "Supplier")} required className="grid gap-1.5 text-sm"><select required className={control} value={partyId} onChange={event => setPartyId(event.target.value)}><option value="">Select {kind === "sales" ? "customer" : "supplier"}</option>{parties.filter(row => row.status === "ACTIVE").map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select></FormLabel>}<FormLabel label={(kind === "sales" ? "Order" : "Purchase") + " date"} required className="grid gap-1.5 text-sm"><input name="date" type="date" max={kind === "sales" ? philippineDate(new Date().toISOString()) : undefined} required className={control} defaultValue={philippineDate(initialRow?.timestamp ?? new Date().toISOString())} /></FormLabel></div>
     {walkIn && <p className="text-sm text-slate-500 dark:text-neutral-400">A new customer record will be created with this order. For an existing customer, use Registered Customers.</p>}
+    {duplicateCustomer && <p role="alert" className="text-sm text-red-600 dark:text-red-400">A customer with this name already exists. Select Registered Customers to use the existing record.</p>}
     
     {!walkIn && party && <div className="rounded-lg bg-slate-50 p-3 text-sm dark:bg-neutral-800"><p className="font-medium">{party.name}</p><p className="mt-1 text-slate-500 dark:text-neutral-400">{[party.email, party.phone, party.address].filter(Boolean).join(" · ") || "No contact details recorded"}</p></div>}
     </div>
@@ -71,6 +86,6 @@ export default function TransactionForm({ kind, parties, products, saving, onSub
     <div className="rounded-lg bg-violet-50 p-4 dark:bg-violet-950/30">
       <p className="text-right font-semibold">Estimated total: {formatCurrency(total)}</p><p className="mt-2 text-xs text-slate-500 dark:text-neutral-400">Prices and totals are calculated again on the server. {kind === "sales" ? "Tax is zero. Stock changes only when a confirmed order is completed." : "Stock changes only when an ordered purchase is received."}</p></div>
     
-    <div className="flex justify-end"><button type="submit" disabled={saving || !active.length || (walkIn ? !walkInName.trim() : !parties.some(row => row.status === "ACTIVE"))} className={primaryButton}>{saving ? "Saving..." : initialRow ? "Save pending order" : "Create pending " + (kind === "sales" ? "order" : "purchase")}</button></div>
+    <div className="flex justify-end"><button type="submit" disabled={isGuest || saving || duplicateCustomer || !active.length || (walkIn ? !walkInName.trim() : !parties.some(row => row.status === "ACTIVE"))} className={primaryButton}>{saving ? "Saving..." : initialRow ? "Save pending order" : "Create pending " + (kind === "sales" ? "order" : "purchase")}</button></div>
   </fieldset></form>;
 }

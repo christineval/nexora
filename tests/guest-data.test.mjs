@@ -113,7 +113,7 @@ test("guest read APIs return demo records, reject unknown detail IDs, and block 
     const api = loadTs(`src/app/api/${route}/[id]/route.ts`, mocks);
     assert.equal((await api.PATCH(new Request(`http://localhost:3000/api/${route}/1`, { method: "PATCH", headers: { Origin: "http://localhost:3000" }, body: "{}" }), { params: Promise.resolve({ id: "1" }) })).status, 403);
   }
-  for (const route of ["inventory/adjustments", "auth/password"]) {
+  for (const route of ["inventory/adjustments", "auth/password", "purchases/import"]) {
     const api = loadTs(`src/app/api/${route}/route.ts`, mocks);
     assert.equal((await api.POST(new Request(`http://localhost:3000/api/${route}`, { method: "POST", headers: { Origin: "http://localhost:3000" }, body: "{}" }))).status, 403);
   }
@@ -131,8 +131,7 @@ test("guest pages and histories render without database imports and never fall b
   for (const route of routes) {
     const { default: Page } = loadTs(`src/app/(erp)/${route}/page.tsx`, mocks);
     const props = { searchParams: Promise.resolve({}), params: Promise.resolve({ id: ids[route] ?? "1" }) };
-    if (route.endsWith("/new")) await assert.rejects(Page(props), /redirect:/);
-    else assert.ok(await Page(props));
+    assert.ok(await Page(props));
     if (route.endsWith("/[id]")) await assert.rejects(Page({ ...props, params: Promise.resolve({ id: "1" }) }), /not-found/);
   }
 });

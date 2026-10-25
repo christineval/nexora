@@ -17,7 +17,7 @@ function harness() {
     "next/navigation": { redirect(path) { throw new Error(path); } },
     "@/server/data/erp-data": new Proxy({}, { get() { return () => assert.fail("Unauthorized object lookup"); } }),
   };
-  for (const name of ["@/lib/prisma", ...["inventory", "contact", "transaction", "user", "adjustment"].map(name => `@/services/${name}.service`)]) {
+  for (const name of ["@/lib/prisma", ...["inventory", "contact", "transaction", "purchase-invoice", "product-lifecycle", "user", "adjustment"].map(name => `@/services/${name}.service`)]) {
     Object.defineProperty(mocks, name, { get() { assert.fail(`Unauthorized request reached protected data: ${name}`); } });
   }
   return { mocks, setIdentity(user) { identity = user; } };
@@ -35,16 +35,30 @@ test("every protected mutation rejects anonymous users, wrong roles and guest wr
   const { canWrite } = loadTs("src/lib/access.ts");
   for (const role of [null, "SALES", "INVENTORY", "FINANCE", "GUEST", "unknown"]) {
     setIdentity(role ? { id: 999n, name: "Actor", role } : null);
-    for (const [path, module] of [...endpoints, ["inventory/adjustments", "inventory"]]) {
+    for (const [path, module] of [...endpoints, ["inventory/adjustments", "inventory"], ["purchases/import", "purchasing"]]) {
       if (role && canWrite(role, module)) continue;
       const route = loadTs(`src/app/api/${path}/route.ts`, mocks);
       assert.equal((await route.POST(request(path, "POST"))).status, role ? 403 : 401, `${role} POST ${path}`);
-      if (path === "inventory/adjustments") continue;
+      if (path === "inventory/adjustments" || path === "purchases/import") continue;
       const detail = loadTs(`src/app/api/${path}/[id]/route.ts`, mocks);
       for (const id of ["1", "9223372036854775807"]) {
         const response = await detail.PATCH(request(`${path}/${id}`, "PATCH"), { params: Promise.resolve({ id }) });
         assert.equal(response.status, role ? 403 : 401, `${role} PATCH ${path}/${id}`);
       }
+    }
+  }
+});
+
+test("product lifecycle routes reject guests, read-only roles and non-admin deletion before service access", async () => {
+  const { mocks, setIdentity } = harness();
+  const lifecycle = loadTs("src/app/api/products/[id]/lifecycle/route.ts", mocks);
+  const detail = loadTs("src/app/api/products/[id]/route.ts", mocks);
+  for (const role of [null, "GUEST", "SALES", "FINANCE", "INVENTORY", "unknown"]) {
+    setIdentity(role ? { id: 99n, name: "Actor", role } : null);
+    for (const id of ["1", "9223372036854775807"]) {
+      const params = { params: Promise.resolve({ id }) };
+      assert.equal((await detail.DELETE(request(`products/${id}`, "DELETE"), params)).status, role ? 403 : 401);
+      if (role !== "INVENTORY") assert.equal((await lifecycle.POST(request(`products/${id}/lifecycle`, "POST"), params)).status, role ? 403 : 401);
     }
   }
 });

@@ -19,7 +19,7 @@ test("markup suggestions reject invalid costs, invalid percentages and prices be
   assert.equal(suggestSellingPrice("9999999999.99", 1), null);
 });
 
-function productForm(product) {
+function productForm(product, guest = false, catalog = []) {
   const state = [];
   let cursor = 0;
   const react = {
@@ -33,11 +33,12 @@ function productForm(product) {
   };
   const Component = loadTs("src/components/inventory/ProductForm.tsx", {
     react,
+    "@/components/ui/GuestPreviewProvider": { useGuestPreview: () => guest },
     "next/navigation": { useRouter: () => ({ refresh() {} }) },
     "@/components/ui/SnackbarProvider": { useNotifications: () => ({ notify() {}, dismiss() {} }) },
   }).default;
   let tree;
-  function render() { cursor = 0; tree = Component({ product }); }
+  function render() { cursor = 0; tree = Component({ product, catalog }); }
   function find(predicate, node) {
     if (arguments.length < 2) node = tree;
     if (Array.isArray(node)) return node.flatMap(item => find(predicate, item));
@@ -49,7 +50,7 @@ function productForm(product) {
   function slider() { return find(node => node.props?.type === "range")[0]; }
   function apply() { return find(node => node.type === "button" && node.props.children === "Use suggested price")[0]; }
   render();
-  return { render, input, change, slider, apply };
+  return { render, input, change, slider, apply, find };
 }
 
 test("add-product markup updates its suggestion and applies it only when selected, preserving manual prices", () => {
@@ -80,4 +81,44 @@ test("editing an existing product preserves stored prices without displaying the
   assert.equal(form.input("sellingPrice").props.value, "8.25");
   form.change("unitCost", "6");
   assert.equal(form.input("sellingPrice").props.value, "8.25");
+});
+
+
+test("guest product previews allow pricing interactions but block direct create and update submissions", async () => {
+  for (const product of [undefined, { productId: "920001", sku: "DEMO-0001", name: "Demo Notebook", unitCost: 5, sellingPrice: 8, stockQty: 4, status: "ACTIVE" }]) {
+    const form = productForm(product, true);
+    form.change("unitCost", "10");
+    if (!product) { form.apply().props.onClick(); form.render(); assert.equal(form.input("sellingPrice").props.value, "13.00"); }
+    assert.equal(form.find(node => node.type === "fieldset")[0].props.disabled, false);
+    assert.equal(form.find(node => node.type === "button" && node.props.type === "submit")[0].props.disabled, true);
+    // No FormData is provided: the guest handler must return before reading or sending form data.
+    await form.find(node => node.type === "form")[0].props.onSubmit({ preventDefault() {} });
+  }
+});
+
+
+test("product price validation displays an error and disables saving below cost, including edits", () => {
+  for (const product of [undefined, { productId: "1", unitCost: 10, sellingPrice: 15, stockQty: 0, status: "ACTIVE" }]) {
+    const form = productForm(product);
+    form.change("unitCost", "10.01");
+    form.change("sellingPrice", "10.00");
+    assert.equal(form.input("sellingPrice").props["aria-invalid"], true);
+    assert.equal(form.find(node => node.type === "button" && node.props.type === "submit")[0].props.disabled, true);
+    form.change("sellingPrice", "10.01");
+    assert.equal(form.input("sellingPrice").props["aria-invalid"], false);
+    assert.equal(form.find(node => node.type === "button" && node.props.type === "submit")[0].props.disabled, false);
+  }
+});
+
+
+test("product form blocks another product's barcode while permitting its own unchanged code and blank codes", () => {
+  const existing = { productId: "1", name: "Existing", size: "Small", supplierProductCode: "001-AB", unitCost: 5, sellingPrice: 8, status: "INACTIVE" };
+  const form = productForm(undefined, false, [existing]);
+  form.change("supplierProductCode", " 001 \u2013 ab ");
+  assert.equal(form.input("supplierProductCode").props["aria-invalid"], true);
+  assert.equal(form.find(node => node.type === "button" && node.props.type === "submit")[0].props.disabled, true);
+  form.change("supplierProductCode", "");
+  assert.equal(form.input("supplierProductCode").props["aria-invalid"], false);
+  const editing = productForm(existing, false, [existing]);
+  assert.equal(editing.input("supplierProductCode").props["aria-invalid"], false);
 });

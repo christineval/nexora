@@ -1,11 +1,14 @@
 import "server-only";
-import { recordAudit } from "@/server/audit";
+import { recordAudit, recordAudits } from "@/server/audit";
+import type { CurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import type { InventoryMovementRow, ProductRow } from "@/types/views";
 import type { CreateProductInput } from "@/validations/product.schema";
 import { createProductRequestSchema, updateProductSchema } from "@/validations/product.schema";
 import { idSchema } from "@/validations/shared";
+import { BusinessError } from "@/lib/errors";
+import { assertNoDuplicateProducts } from "@/server/record-duplicates";
 
 
 export async function listProducts(): Promise<ProductRow[]> {
@@ -64,10 +67,11 @@ export async function getNextProductSku(): Promise<string> {
 
 export async function createProduct(input: unknown, actorId: bigint) {
   const { quantity, ...data } = createProductRequestSchema.parse(input);
-  return prisma.$transaction(tx => createProductInTransaction(tx, data, actorId, quantity));
+  return prisma.$transaction(tx => createProductInTransaction(tx, data, actorId, quantity), { isolationLevel: "Serializable" });
 }
 
 export async function createProductInTransaction(tx: Prisma.TransactionClient, data: CreateProductInput, actorId: bigint, initialQuantity = 0) {
+  await assertNoDuplicateProducts(tx, [data]);
   const result = await tx.$queryRaw<Array<{ sku: string }>>`
     SELECT 'ERP-' || LPAD(value, GREATEST(4, LENGTH(value)), '0') AS sku
     FROM (SELECT nextval('public.product_sku_seq'::regclass)::text AS value) generated`;
@@ -94,11 +98,37 @@ export async function createProductInTransaction(tx: Prisma.TransactionClient, d
   return product;
 }
 
+export async function createProductsInTransaction(tx: Prisma.TransactionClient, inputs: CreateProductInput[], actor: CurrentUser) {
+  if (!inputs.length) return [];
+  await assertNoDuplicateProducts(tx, inputs);
+  const generated = await tx.$queryRaw<Array<{ sku: string }>>`
+    SELECT 'ERP-' || LPAD(value, GREATEST(4, LENGTH(value)), '0') AS sku
+    FROM (SELECT ordinal, nextval('public.product_sku_seq'::regclass)::text AS value
+      FROM generate_series(1, ${inputs.length}::int) AS series(ordinal)) generated
+    ORDER BY ordinal`;
+  if (generated.length !== inputs.length) throw new Error("Failed to generate product SKUs");
+  const products = await tx.products.createManyAndReturn({ data: inputs.map((input, index) => ({
+    sku: generated[index].sku, name: input.name, supplier_product_code: input.supplierProductCode || null,
+    size: input.size || null, unit_cost: input.unitCost, selling_price: input.sellingPrice, stock_qty: 0, status: "ACTIVE",
+  })) });
+  const bySku = new Map(products.map(product => [product.sku, product]));
+  const ordered = generated.map(({ sku }) => {
+    const product = bySku.get(sku);
+    if (!product) throw new Error("A created product is missing");
+    return product;
+  });
+  await recordAudits(tx, actor, ordered.map(product => ({ action: "PRODUCT_CREATED", entity: "PRODUCT", entityId: product.id, after: product })));
+  return ordered;
+}
+
 export async function updateProduct(recordId: string, input: unknown, actorId: bigint) {
   const id = BigInt(idSchema.parse(recordId));
   const data = updateProductSchema.parse(input);
   return prisma.$transaction(async tx => {
     const before = await tx.products.findUnique({ where: { id } });
+    if (!before) throw new BusinessError("Product not found.", 404);
+    if (data.status !== before.status) throw new BusinessError("Use the Archive or Restore action to change product availability.", 409);
+    await assertNoDuplicateProducts(tx, [{ ...data, supplierProductCode: data.supplierProductCode ?? before.supplier_product_code }], id);
     const row = await tx.products.update({ where: { id }, data: { name: data.name, supplier_product_code: data.supplierProductCode === undefined ? undefined : data.supplierProductCode || null, size: data.size || null, unit_cost: data.unitCost, selling_price: data.sellingPrice, status: data.status, updated_at: new Date() } });
     await recordAudit(tx, actorId, { action: "PRODUCT_UPDATED", entity: "PRODUCT", entityId: id, before, after: row });
     return { id: row.id.toString() };

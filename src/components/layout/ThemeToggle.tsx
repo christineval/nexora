@@ -7,7 +7,7 @@ import { setTheme } from "@/lib/theme";
 export default function ThemeToggle() {
   const theme = useTheme();
   return (
-    <div role="group" aria-label="Color theme" className="flex gap-1 rounded-[39px] border border-gray-200 bg-gray-50 p-1 dark:border-[#303030] dark:bg-[#111111]">
+    <div role="group" aria-label="Color theme" className="flex w-fit shrink-0 gap-1 rounded-[39px] border border-gray-200 bg-gray-50 p-1 dark:border-[#303030] dark:bg-[#111111]">
       {(["light", "dark"] as const).map((option) => {
         const Icon = option === "light" ? Sun : Moon;
         const label = option === "light" ? "Light mode" : "Dark mode";

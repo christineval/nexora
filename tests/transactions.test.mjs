@@ -17,6 +17,7 @@ function pendingHarness(stock = 10, failOrder = false) {
   const tx = {
     audit_logs: { async create({ data }) { audit.push(data); } },
     customers: {
+      async findMany() { return customers; },
       async findUnique() { return { id: 1n, status: "ACTIVE" }; },
       async create({ data }) { const row = { id: 3n, ...data }; customers.push(row); return row; },
     },
@@ -186,4 +187,15 @@ test("cancellation does not apply inventory or financial effects", async () => {
   await service.transitionTransaction("sales", "1", "cancel", actor);
   assert.equal(state.status, "CANCELLED"); assert.equal(state.stock, 10);
   assert.equal(state.movements.length, 0); assert.equal(state.ledger.length, 0);
+});
+
+
+test("walk-in sales reject existing customer names without creating a second customer or order", async () => {
+  const state = pendingHarness();
+  const input = { date: state.input.date, items: state.input.items, walkInCustomer: { name: "Walk-in buyer" } };
+  await state.service.createTransaction("sales", input, actor);
+  const beforeWrites = state.writes.length;
+  await assert.rejects(state.service.createTransaction("sales", { ...input, walkInCustomer: { name: "  WALK-IN   BUYER " } }, actor), /name already exists/);
+  assert.equal(state.customers.length, 1);
+  assert.equal(state.writes.length, beforeWrites);
 });

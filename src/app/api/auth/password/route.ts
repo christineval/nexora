@@ -1,8 +1,7 @@
-import { z } from "zod";
 import { api, checkOrigin, readJson } from "@/lib/api";
 import { getCurrentUser, createSession } from "@/lib/auth";
 import { hashPassword, verifyPassword } from "@/lib/password";
-import { userSchema } from "@/validations/user.schema";
+import { passwordChangeSchema } from "@/validations/user.schema";
 import { BusinessError } from "@/lib/errors";
 import { consumeLimit } from "@/lib/rate-limit";
 import { recordAudit } from "@/server/audit";
@@ -13,7 +12,7 @@ export async function POST(request: Request) {
     if (current.role === "GUEST") throw new BusinessError("Guest access is read-only.", 403);
     await consumeLimit(`password:${current.id}`, 5, 15 * 60);
     const { prisma } = await import("@/lib/prisma");
-    const data = z.object({ currentPassword: z.string().min(1).max(72), password: userSchema.shape.password, confirmPassword: z.string() }).refine(data => data.password === data.confirmPassword, "New passwords must match.").parse(await readJson(request));
+    const data = passwordChangeSchema.parse(await readJson(request));
     const user = await prisma.users.findUnique({ where: { id: current.id } });
     if (!user || !await verifyPassword(data.currentPassword, user.password_hash)) throw new BusinessError("Current password is incorrect.", 400);
     const digest = await hashPassword(data.password);

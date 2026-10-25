@@ -1,4 +1,5 @@
 import { toMinorUnits } from "./money";
+import { normalizeBarcode } from "./record-identity";
 import type { ProductRow } from "@/types/views";
 
 export type ImportedPurchaseLine = {
@@ -55,7 +56,7 @@ export function matchImportProduct(description: string, products: ProductRow[]) 
 }
 
 export function normalizeSupplierCode(value: string) {
-  return value.normalize("NFKC").trim().toUpperCase().replace(/[\u2010-\u2015\u2212]/g, "-").replace(/\s*([-/.])\s*/g, "$1");
+  return normalizeBarcode(value);
 }
 
 function importNameWithoutPrefix(value: string) {

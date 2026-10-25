@@ -18,6 +18,7 @@ test("customer contact numbers preserve leading zeros, remain optional, and reje
 test("customer create and edit reject invalid contact numbers before writes and save digits as strings", async () => {
   const writes = [];
   const customers = {
+    async findMany() { return []; },
     async findUnique() { return { id: 1n, ...input }; },
     async create({ data }) { writes.push(data); return { id: 1n }; },
     async update({ data }) { writes.push(data); return { id: 1n }; },

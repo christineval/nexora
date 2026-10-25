@@ -105,7 +105,7 @@ test("purchase import reads images and PDFs locally and reviews many products wi
   const externalRequests = [];
   page.on("request", request => { if (/^https?:/.test(request.url()) && !request.url().startsWith("http://localhost:3000")) externalRequests.push(request.url()); });
   const submitted = [];
-  await page.route("**/api/purchases", async route => {
+  await page.route("**/api/purchases/import", async route => {
     if (route.request().method() !== "POST") return route.continue();
     submitted.push(route.request().postDataJSON());
     await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: "Test response: purchase was not saved." }) });
@@ -142,15 +142,15 @@ test("purchase import reads images and PDFs locally and reviews many products wi
     await dialog.getByRole("combobox", { name: "Product match 2", exact: true }).selectOption(ids[0]);
     await expect(dialog.getByText("Each product can appear only once.", { exact: false })).toBeVisible();
     await dialog.getByRole("checkbox").check();
-    await expect(dialog.getByRole("button", { name: "Create pending purchase", exact: true })).toBeDisabled();
+    await expect(dialog.getByRole("button", { name: "Save received purchase", exact: true })).toBeDisabled();
     await dialog.getByRole("combobox", { name: "Product match 2", exact: true }).selectOption(ids[1]);
     await expect(dialog.getByRole("checkbox")).not.toBeChecked();
     await expect(dialog.getByText("Select the matching product.", { exact: true })).toHaveCount(0);
     await dialog.getByRole("checkbox").check();
-    await dialog.locator("details").first().locator("summary").click();
+    await openInvoiceDetails(dialog, 1);
     await expect(dialog.getByText("Stored unit cost:", { exact: false }).first()).toBeVisible();
     await page.screenshot({ path: `test-results/purchase-import-${index ? "mobile" : "desktop"}.png`, fullPage: true });
-    await dialog.getByRole("button", { name: "Create pending purchase", exact: true }).click();
+    await dialog.getByRole("button", { name: "Save received purchase", exact: true }).click();
     await expect.poll(() => submitted.length).toBe(index + 1);
     expect(submitted.at(-1).items).toEqual([{ productId: ids[0], quantity: 3 }, { productId: ids[1], quantity: 2 }]);
     await expect(page.locator(".snackbar-viewport").getByRole("alert")).toContainText("Test response: purchase was not saved.");
@@ -210,22 +210,23 @@ test("invoice review separates coded product rows and requires missing quantitie
   await expect(dialog.getByLabel("Supplier product code 1", { exact: true })).toHaveValue("L-EIR65-T00V1");
   await dialog.getByRole("button", { name: "New only (2)", exact: true }).click();
   await expect(dialog.getByRole("textbox", { name: "Product name 1", exact: true })).toBeVisible();
-  await dialog.getByRole("button", { name: "Needs review (2)", exact: true }).click();
-  await expect(dialog.getByRole("textbox", { name: "Product name 2", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Needs review (0)", exact: true }).click();
+  await expect(dialog.getByText("No items in this filter.", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "Product name 2", exact: true })).toHaveCount(0);
   await dialog.getByRole("button", { name: "All items (2)", exact: true }).click();
   await expect(dialog.getByLabel(/^Quantity\ 1\s*\*?$/, { exact: true })).toHaveValue("");
-  await expect(dialog.getByText("Enter a valid quantity before saving.", { exact: false })).toHaveCount(2);
+  await expect(dialog.getByText("Enter a quantity for this invoice line.", { exact: false })).toHaveCount(2);
   await dialog.getByLabel(/^Quantity\ 1\s*\*?$/, { exact: true }).fill("1");
-  await expect(dialog.getByText("Enter a valid quantity before saving.", { exact: false })).toHaveCount(1);
+  await expect(dialog.getByText("Enter a quantity for this invoice line.", { exact: false })).toHaveCount(1);
   await dialog.getByRole("textbox", { name: "Product name 1", exact: true }).fill("Corrected invoice description");
   await expect(dialog.getByRole("textbox", { name: "Product name 1", exact: true })).toHaveValue("Corrected invoice description");
   await dialog.getByRole("checkbox").check();
-  await expect(dialog.getByRole("button", { name: "Create pending purchase", exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "Save received purchase", exact: true })).toBeDisabled();
 });
 
 test("invoice import reviews new and existing products together and submits one purchase", async ({ page }) => {
   const submitted = [];
-  await page.route("**/api/purchases", async route => {
+  await page.route("**/api/purchases/import", async route => {
     if (route.request().method() !== "POST") return route.continue();
     submitted.push(route.request().postDataJSON());
     await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "123" }) });
@@ -241,7 +242,7 @@ test("invoice import reviews new and existing products together and submits one 
   await expect(dialog.getByLabel(/^Unit\ cost\ 1\ \(PHP\)\s*\*?$/, { exact: true })).toHaveValue("10.25");
   await expect(dialog.getByLabel(/^Selling\ price\ 1\ \(PHP\)\s*\*?$/, { exact: true })).toHaveValue("");
   await dialog.getByRole("checkbox").check();
-  await expect(dialog.getByRole("button", { name: "Create pending purchase", exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "Save received purchase", exact: true })).toBeDisabled();
   await dialog.getByLabel(/^Selling\ price\ 1\ \(PHP\)\s*\*?$/, { exact: true }).fill("15.00");
   await expect(dialog.getByRole("checkbox")).not.toBeChecked();
   await dialog.getByLabel("Size 1", { exact: true }).fill("Small");
@@ -253,20 +254,20 @@ test("invoice import reviews new and existing products together and submits one 
   await supplier.selectOption(supplierId);
   await expect(dialog.getByText("1 new product will be added to Products when saved.", { exact: true })).toBeVisible();
   await dialog.getByRole("checkbox").check();
-  await expect(dialog.getByRole("button", { name: "Create pending purchase", exact: true })).toBeEnabled();
+  await expect(dialog.getByRole("button", { name: "Save received purchase", exact: true })).toBeEnabled();
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await dialog.getByLabel(/^Product\ name\ 1\s*\*?$/, { exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: `test-results/purchase-new-product-${width}.png`, fullPage: true });
   }
-  await dialog.getByRole("button", { name: "Create pending purchase", exact: true }).click();
+  await dialog.getByRole("button", { name: "Save received purchase", exact: true }).click();
   await expect.poll(() => submitted.length).toBe(1);
   expect(submitted[0].items).toEqual([
     { newProduct: { name: "New store item", supplierProductCode: "", size: "Small", unitCost: "10.25", sellingPrice: "15.00" }, quantity: 2 },
     { productId: id, quantity: 3 },
   ]);
   await expect(dialog).not.toBeVisible();
-  await expect(page.locator(".snackbar-viewport")).toContainText("Purchase saved with 1 new product");
+  await expect(page.locator(".snackbar-viewport")).toContainText("Received purchase saved with 1 new product");
 });
 
 test("closing invoice import discards unsaved data through the close button and Escape", async ({ page }) => {
@@ -279,7 +280,7 @@ test("closing invoice import discards unsaved data through the close button and 
     await readInvoice(page, dialog, "Unsaved product 2 10.00 20.00");
 
     await dialog.getByRole("combobox", { name: "Product match 1", exact: true }).selectOption("new");
-  await openInvoiceDetails(dialog, 1);
+    await openInvoiceDetails(dialog, 1);
     await dialog.getByLabel(/^Selling\ price\ 1\ \(PHP\)\s*\*?$/, { exact: true }).fill("15.00");
     const supplier = dialog.getByRole("combobox", { name: "Supplier", exact: true });
     const supplierId = await supplier.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
@@ -323,7 +324,7 @@ test("purchase import rejects unsupported files and remains hidden for read-only
   await page.goto("/login");
   await page.getByRole("button", { name: "View as guest", exact: true }).click();
   await page.goto("/purchasing");
-  await expect(page.getByRole("button", { name: "Import Receipt / Invoice", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Import Receipt / Invoice", exact: true })).toBeVisible();
 });
 
 test("numeric form inputs reject text and sales calendars block future dates", async ({ page }) => {
@@ -678,21 +679,21 @@ test("guest entry browses all modules, blocks writes, and offers header controls
   await page.goto("/login");
   await page.getByRole("button", { name: "View as guest", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByText("Viewing as Guest. All modules are read-only and show mock data. No live business records are displayed.")).toBeVisible();
+  await expect(page.getByText("Viewing as Guest. All modules are read-only and show mock data. No live business records are displayed. Try the forms and invoice OCR; saving, updating and confirmations are disabled.")).toBeVisible();
   for (const path of ["/sales", "/customers", "/inventory/products", "/inventory/movements", "/purchasing", "/suppliers", "/finance/ledger", "/reports/sales", "/reports/purchases", "/reports/inventory", "/settings/users", "/settings"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByText("Unable to load this page")).not.toBeVisible();
-    await expect(page.getByRole("button", { name: /^(Add (Product|Customer|Supplier|User)|New Order|New Purchase Order|Adjust Stock|Change password|Edit |Actions for order )/ })).toHaveCount(0);
   }
-  for (const [method, path] of [["post", "/api/products"], ["patch", "/api/products/1"], ["post", "/api/customers"], ["patch", "/api/customers/1"], ["post", "/api/suppliers"], ["patch", "/api/suppliers/1"], ["post", "/api/orders"], ["patch", "/api/orders/1"], ["post", "/api/purchases"], ["patch", "/api/purchases/1"], ["post", "/api/inventory/adjustments"], ["post", "/api/users"], ["patch", "/api/users/1"], ["post", "/api/auth/password"]]) {
+  for (const [method, path] of [["post", "/api/products"], ["patch", "/api/products/1"], ["post", "/api/customers"], ["patch", "/api/customers/1"], ["post", "/api/suppliers"], ["patch", "/api/suppliers/1"], ["post", "/api/orders"], ["patch", "/api/orders/1"], ["post", "/api/purchases"], ["post", "/api/purchases/import"], ["patch", "/api/purchases/1"], ["post", "/api/inventory/adjustments"], ["post", "/api/users"], ["patch", "/api/users/1"], ["post", "/api/auth/password"]]) {
     const response = await context.request[method](path, { headers: { Origin: "http://localhost:3000" }, data: {} });
     expect(response.status(), path).toBe(403);
   }
   for (const path of ["/sales/new", "/purchasing/new"]) {
     await page.goto(path);
-    await expect(page).toHaveURL(new RegExp(path.replace("/new", "") + "$"));
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(path + "$"));
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("dialog").getByRole("button", { name: /^Create pending/ })).toBeDisabled();
   }
   await page.goto("/customers");
   await page.getByRole("button", { name: /^Details for / }).first().click();
@@ -700,7 +701,7 @@ test("guest entry browses all modules, blocks writes, and offers header controls
   const historyLink = page.getByRole("link", { name: /^View sales history/ });
   await page.goto(await historyLink.getAttribute("href"));
   await expect(page.getByRole("heading", { name: "Sales history", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Edit / }).first()).toBeVisible();
   await page.goto("/sales");
   await page.getByRole("button", { name: /^View order / }).first().click();
   await expect(page.getByRole("dialog", { name: "Order details", exact: true })).toBeVisible();

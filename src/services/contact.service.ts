@@ -5,6 +5,7 @@ import { contactSchema, idSchema } from "@/validations/shared";
 import { supplierSchema } from "@/validations/supplier.schema";
 import { customerSchema } from "@/validations/customer.schema";
 import type { ContactRow } from "@/types/features";
+import { assertNoDuplicateContact } from "@/server/record-duplicates";
 export type ContactKind = "customers" | "suppliers";
 export async function listContacts(kind: ContactKind): Promise<ContactRow[]> {
   if (kind === "customers") {
@@ -19,6 +20,7 @@ export async function saveContact(kind: ContactKind, input: unknown, actorId: bi
   const value = kind === "customers" ? customerSchema.parse(input) : contactSchema.parse(input);
   const data = { name: value.name, email: value.email || null, phone: value.phone || null, address: value.address || null, status: value.status, updated_at: new Date() };
   return prisma.$transaction(async tx => {
+    await assertNoDuplicateContact(tx, kind, value, id);
     if (kind === "customers") {
       const before = id ? await tx.customers.findUnique({ where: { id } }) : null;
       const row = id ? await tx.customers.update({ where: { id }, data }) : await tx.customers.create({ data });

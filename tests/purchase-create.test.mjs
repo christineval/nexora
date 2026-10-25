@@ -28,7 +28,7 @@ function harness({ failPurchase = false, failProduct = false, invalidSupplier = 
         products.push(row);
         return row;
       },
-      async findMany({ where }) {
+      async findMany({ where }) { if (where.OR) return products.filter(product => product.id !== where.id?.not);
         return products.filter(row => where.id.in.includes(row.id) && row.status === where.status && !(unavailableProduct && row.id === 1n));
       },
       async updateMany() { assert.fail("Import must not change stock"); },
@@ -74,7 +74,7 @@ test("mixed purchases create zero-stock products with generated SKUs and link al
 test("failed purchase, supplier, product reference or later product write rolls back all new products", async () => {
   for (const options of [{ failPurchase: true }, { invalidSupplier: true }, { unavailableProduct: true }, { failProduct: true }]) {
     const state = harness(options);
-    const data = options.failProduct ? { ...input, items: [...input.items, { newProduct: { ...newProduct, name: "Another new product" }, quantity: 1 }] } : input;
+    const data = options.failProduct ? { ...input, items: [...input.items, { newProduct: { ...newProduct, name: "Another new product", supplierProductCode: "ANOTHER-001" }, quantity: 1 }] } : input;
     await assert.rejects(state.service.createTransaction("purchasing", data, actor));
     assert.equal(state.transactions, 1);
     assert.equal(state.products.length, 1);
