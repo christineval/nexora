@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requirePageAccess } from "@/lib/auth";
 import { listAuditLogs } from "@/services/audit.service";
 import { auditFilterSchema } from "@/validations/audit.schema";
+import AuditChanges from "@/components/features/AuditChanges";
 import FeatureHeading from "@/components/ui/FeatureHeading";
 import { control, primaryButton, secondaryButton } from "@/components/ui/feature-styles";
 import { formatDateTime } from "@/lib/utils";
@@ -47,7 +48,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
             <td className="px-4 py-3">{row.action.replaceAll("_", " ")}</td>
             <td className="px-4 py-3">{row.entity_type.replaceAll("_", " ")}{row.entity_id ? ` #${row.entity_id}` : ""}</td>
             <td className="px-4 py-3">{row.outcome}</td>
-            <td className="min-w-56 px-4 py-3">{row.before !== null || row.after !== null ? <details><summary className="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-violet-500">View changes<span className="sr-only"> for event #{row.id}</span></summary><div className="mt-2 grid gap-3"><div><p className="font-medium">Before</p><pre className="max-h-72 max-w-md overflow-auto rounded bg-slate-50 p-2 text-xs dark:bg-neutral-900">{JSON.stringify(row.before, null, 2)}</pre></div><div><p className="font-medium">After</p><pre className="max-h-72 max-w-md overflow-auto rounded bg-slate-50 p-2 text-xs dark:bg-neutral-900">{JSON.stringify(row.after, null, 2)}</pre></div></div></details> : "—"}</td>
+            <td className="min-w-56 px-4 py-3">{row.before !== null || row.after !== null ? <AuditChanges before={row.before} after={row.after} eventId={row.id} /> : "—"}</td>
           </tr>)}{data.rows.length === 0 && <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-500">No audit events match these filters.</td></tr>}</tbody>
         </table>
       </div>
