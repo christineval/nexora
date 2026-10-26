@@ -9,7 +9,7 @@ const { toMinorUnits, fromMinorUnits, sumMoney } = loadTs("src/lib/money.ts");
 const { nextStatus } = loadTs("src/lib/workflow.ts");
 const { stockDelta } = loadTs("src/lib/stock.ts");
 
-test("sales dates allow today and past dates but reject future dates; planned purchases remain allowed", () => {
+test("sales and purchase dates allow today and past dates but reject future dates", () => {
   const now = new Date();
   const today = philippineDate(now.toISOString());
   const tomorrow = philippineDate(new Date(now.getTime() + 86400000).toISOString());
@@ -19,7 +19,7 @@ test("sales dates allow today and past dates but reject future dates; planned pu
   const result = orderSchema.safeParse({ ...order, date: tomorrow });
   assert.equal(result.success, false);
   assert.match(result.error.issues[0].message, /cannot be in the future/);
-  assert.equal(transactionSchema.safeParse({ ...order, date: tomorrow }).success, true);
+  assert.equal(transactionSchema.safeParse({ ...order, date: tomorrow }).success, false);
   assert.equal(philippineDate("2026-10-11T16:00:00Z"), "2026-10-12");
 });
 
@@ -80,9 +80,13 @@ test("movement direction is derived from type, without changing positive storage
 });
 
 
-test("guests can view every module and cannot mutate any module", () => {
-  for (const feature of ["sales", "customers", "inventory", "purchasing", "suppliers", "finance", "reports", "settings"]) {
+test("guests can view business demos but cannot access administration or mutate any module", () => {
+  for (const feature of ["sales", "customers", "inventory", "purchasing", "suppliers", "finance", "reports"]) {
     assert.equal(canAccess("GUEST", feature), true);
+    assert.equal(canWrite("GUEST", feature), false);
+  }
+  for (const feature of ["settings", "audit", "unknown", "__proto__"]) {
+    assert.equal(canAccess("GUEST", feature), false);
     assert.equal(canWrite("GUEST", feature), false);
   }
 });

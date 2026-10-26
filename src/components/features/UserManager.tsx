@@ -18,7 +18,7 @@ import { formatDateTime } from "@/lib/utils";
 import type { UserRow } from "@/types/features";
 export default function UserManager({ rows, currentId, canEdit = true }: { rows: UserRow[]; currentId: string; canEdit?: boolean }) {
   const isGuest = useGuestPreview();
-  const canPreview = canEdit || isGuest;
+  const canPreview = canEdit && !isGuest;
   const [duplicateEmail, setDuplicateEmail] = useState(false);
   const [panel, setPanelState] = useState<{ kind: "create" | "edit" | "details"; id?: string } | null>(null);
   const { notify } = useNotifications();

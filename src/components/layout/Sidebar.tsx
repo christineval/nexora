@@ -27,7 +27,7 @@ export default function Sidebar({ mobile = false, onNavigate, role }: { mobile?:
     <Link href="/dashboard" onClick={onNavigate} className="flex items-center gap-2.5 px-6 py-6 text-base font-bold tracking-tight"><span className="flex size-7 items-center justify-center rounded-lg bg-violet-600 text-white shadow-md shadow-violet-950/30"><Box className="size-4" aria-hidden="true" /></span>Nexora</Link>
     <nav aria-label="Main navigation" className="grid gap-4 px-3 pb-5">
       <div>{renderItem({ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard })}</div>
-      {groups.filter(group => !role || canAccess(role, (group.label === "Administration" ? "settings" : group.label.toLowerCase()) as Module)).map((group) => <div key={group.label}><p className="mb-1.5 px-3 text-[10px] font-semibold tracking-[1.2px] dark:text-white uppercase">{group.label}</p><div className="space-y-0.5">{group.items.filter(item => item.href !== "/settings/audit" || role === "ADMIN").map(renderItem)}</div></div>)}
+      {groups.filter(group => role && canAccess(role, (group.label === "Administration" ? "settings" : group.label.toLowerCase()) as Module)).map((group) => <div key={group.label}><p className="mb-1.5 px-3 text-[10px] font-semibold tracking-[1.2px] dark:text-white uppercase">{group.label}</p><div className="space-y-0.5">{group.items.filter(item => item.href !== "/settings/audit" || role === "ADMIN").map(renderItem)}</div></div>)}
     </nav>
   </aside>;
 }

@@ -15,6 +15,8 @@ function loadService(skus) {
     exports,
     require(name) {
       if (name === "@/server/record-duplicates") return {};
+      if (name === "@prisma/client") return {};
+      if (name === "@/lib/money") return {};
       if (name === "server-only" || name === "@/server/audit") return {};
       if (name === "@/lib/not-implemented") return {};
       if (name === "@/lib/errors") return {};

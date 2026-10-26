@@ -40,7 +40,7 @@ export async function importPurchaseInvoice(input: unknown, user: CurrentUser) {
     const resolved = data.items.map(item => {
       const productId = item.newProduct ? products[nextProduct++]?.id.toString() : item.productId;
       if (!productId) throw new BusinessError("A product could not be prepared. Review all invoice lines.", 400);
-      return { productId, quantity: item.quantity };
+      return { productId, quantity: item.quantity, unitPrice: item.unitPrice };
     });
     const { partyId, items, total, date } = await prepareTransaction(tx, "purchasing", { partyId: data.partyId, date: data.date, items: resolved }, user);
     const row = await tx.purchase_orders.create({ data: { supplier_id: partyId, created_by: user.id, purchase_date: date, status: "RECEIVED", total_amount: total, purchase_items: { create: items } } });

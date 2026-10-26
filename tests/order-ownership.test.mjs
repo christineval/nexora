@@ -13,7 +13,7 @@ function harness(kind) {
     id, created_by: id, status: "PENDING", customer_id: 1n, supplier_id: 1n,
     order_date: new Date(), purchase_date: new Date(),
     total_amount: new Prisma.Decimal(1), subtotal: new Prisma.Decimal(1), tax: new Prisma.Decimal(0),
-    customers: { name: "Customer" }, suppliers: { name: "Supplier" }, users: { name: "Creator" },
+    customers: { name: "Customer" }, suppliers: { name: "Supplier" }, users: { name: "Creator" }, purchase_payments: [],
     [kind === "sales" ? "order_items" : "purchase_items"]: [{
       id: 1n, product_id: 1n, quantity: 1, unit_price: new Prisma.Decimal(1), line_total: new Prisma.Decimal(1), products: { name: "Product", sku: "ERP-0001" },
     }],
@@ -38,6 +38,7 @@ function harness(kind) {
     customers: { async findUnique() { return { id: 1n, status: "ACTIVE" }; }, async create() { assert.fail("Unauthorized walk-in creation"); } },
     suppliers: { async findUnique() { return { id: 1n, status: "ACTIVE" }; } },
     products: {
+      async findUnique() { return { id: 1n, status: "ACTIVE", name: "Product", stock_qty: 10, unit_cost: new Prisma.Decimal(1), inventory_value: new Prisma.Decimal(10) }; },
       async findMany() { return [{ id: 1n, name: "Product", stock_qty: 10, selling_price: new Prisma.Decimal(1), unit_cost: new Prisma.Decimal(1) }]; },
       async updateMany() { writes.push({ model: "stock" }); return { count: 1 }; },
     },

@@ -14,6 +14,7 @@ import {
 } from "@/lib/inventory-movements";
 import type { InventoryMovementRow } from "@/types/views";
 import { stockDelta } from "@/lib/stock";
+import { philippineDate } from "@/lib/feature-list";
 
 const defaultFilters: MovementFilters = { query: "", type: "", productId: "", from: "", to: "" };
 const control = "h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20 dark:border-[#303030] dark:bg-[#191919] dark:text-neutral-200";
@@ -26,6 +27,7 @@ const typeColors: Record<string, string> = {
 
 export default function MovementTable({ rows }: { rows: InventoryMovementRow[] }) {
   const [filters, setFilters] = useState(defaultFilters);
+  const today = philippineDate(new Date().toISOString());
   const [requestedPage, setRequestedPage] = useState(1);
   const [selected, setSelected] = useState<InventoryMovementRow | null>(null);
   const filtered = filterInventoryMovements(rows, filters);
@@ -40,6 +42,7 @@ export default function MovementTable({ rows }: { rows: InventoryMovementRow[] }
     : "All dates";
 
   function updateFilter(key: keyof MovementFilters, value: string) {
+    if ((key === "from" || key === "to") && value > today) return;
     setFilters((current) => ({ ...current, [key]: value }));
     setRequestedPage(1);
   }
@@ -59,9 +62,9 @@ export default function MovementTable({ rows }: { rows: InventoryMovementRow[] }
           <div className="absolute right-0 z-20 mt-2 w-full min-w-64 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-[#303030] dark:bg-[#191919]">
             <p className="mb-3 text-xs text-slate-500 dark:text-neutral-400">Dates use Philippine time.</p>
             <div className="grid gap-3">
-              <FormLabel label="From" htmlFor="movement-from" className="grid gap-1.5 text-xs font-medium"><input id="movement-from" type="date" value={filters.from} max={filters.to || undefined} onChange={(event) => updateFilter("from", event.target.value)} aria-invalid={invalidRange} aria-describedby={invalidRange ? "movement-date-error" : undefined} className={control + " dark:[color-scheme:dark]"} />
+              <FormLabel label="From" htmlFor="movement-from" className="grid gap-1.5 text-xs font-medium"><input id="movement-from" type="date" value={filters.from} max={filters.to && filters.to < today ? filters.to : today} onChange={(event) => updateFilter("from", event.target.value)} aria-invalid={invalidRange} aria-describedby={invalidRange ? "movement-date-error" : undefined} className={control + " dark:[color-scheme:dark]"} />
               </FormLabel>
-              <FormLabel label="To" htmlFor="movement-to" className="grid gap-1.5 text-xs font-medium"><input id="movement-to" type="date" value={filters.to} min={filters.from || undefined} onChange={(event) => updateFilter("to", event.target.value)} aria-invalid={invalidRange} aria-describedby={invalidRange ? "movement-date-error" : undefined} className={control + " dark:[color-scheme:dark]"} />
+              <FormLabel label="To" htmlFor="movement-to" className="grid gap-1.5 text-xs font-medium"><input id="movement-to" type="date" value={filters.to} max={today} min={filters.from || undefined} onChange={(event) => updateFilter("to", event.target.value)} aria-invalid={invalidRange} aria-describedby={invalidRange ? "movement-date-error" : undefined} className={control + " dark:[color-scheme:dark]"} />
               </FormLabel>
             </div>
             {invalidRange && <p id="movement-date-error" role="alert" className="mt-3 text-xs text-rose-600 dark:text-rose-300">Choose an end date on or after the start date.</p>}

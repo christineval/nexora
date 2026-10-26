@@ -5,12 +5,14 @@ import { auditFilterSchema } from "@/validations/audit.schema";
 import FeatureHeading from "@/components/ui/FeatureHeading";
 import { control, primaryButton, secondaryButton } from "@/components/ui/feature-styles";
 import { formatDateTime } from "@/lib/utils";
+import { philippineDate } from "@/lib/feature-list";
 
 export const dynamic = "force-dynamic";
 type Search = Record<string, string | string[] | undefined>;
 
 export default async function AuditPage({ searchParams }: { searchParams: Promise<Search> }) {
   const user = await requirePageAccess("audit");
+  const today = philippineDate(new Date().toISOString());
   const raw = await searchParams;
   const input = Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== "" && value !== undefined));
   const parsed = auditFilterSchema.safeParse(input);
@@ -29,8 +31,8 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       <label className="grid gap-1 text-sm">Action<input className={control} name="action" defaultValue={value("action")} placeholder="e.g. PRODUCT_CREATED" /></label>
       <label className="grid gap-1 text-sm">Record type<select className={control} name="entity" defaultValue={value("entity")}><option value="">All types</option>{["AUTH", "USER", "PRODUCT", "CUSTOMER", "SUPPLIER", "ORDER", "PURCHASE_ORDER", "INVENTORY_MOVEMENT", "LEDGER", "ACCESS"].map(type => <option key={type} value={type}>{type.replaceAll("_", " ")}</option>)}</select></label>
       <label className="grid gap-1 text-sm">Outcome<select className={control} name="outcome" defaultValue={value("outcome")}><option value="">All outcomes</option><option>SUCCESS</option><option>FAILURE</option><option>DENIED</option></select></label>
-      <label className="grid gap-1 text-sm">From<input className={control} type="date" name="from" defaultValue={value("from")} /></label>
-      <label className="grid gap-1 text-sm">To<input className={control} type="date" name="to" defaultValue={value("to")} /></label>
+      <label className="grid gap-1 text-sm">From<input className={control} type="date" max={today} name="from" defaultValue={value("from")} /></label>
+      <label className="grid gap-1 text-sm">To<input className={control} type="date" max={today} name="to" defaultValue={value("to")} /></label>
       <div className="flex items-end gap-2"><button className={primaryButton} type="submit">Filter</button><Link className={secondaryButton} href="/settings/audit">Reset</Link></div>
     </form>
     {!parsed.success && <p role="alert" className="mb-4 text-sm text-red-600">{parsed.error.issues[0]?.message}</p>}

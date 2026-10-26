@@ -1,0 +1,2673 @@
+{
+  "version": 2,
+  "source": "erp_lite",
+  "capturedAt": "2026-10-26T03:40:22.142Z",
+  "capabilities": {
+    "purchasePayments": false,
+    "inventoryValuation": false
+  },
+  "data": {
+    "products": [
+      {
+        "productId": "9",
+        "sku": "ERP-0009",
+        "name": "Badminton Racket",
+        "size": "Standard",
+        "stockQty": 50,
+        "unitCost": 420,
+        "sellingPrice": 950,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "1",
+        "sku": "ERP-0001",
+        "name": "Basketball",
+        "size": "Size 7",
+        "stockQty": 50,
+        "unitCost": 450,
+        "sellingPrice": 899,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "6",
+        "sku": "ERP-0006",
+        "name": "Camping Tent",
+        "size": "2 Person",
+        "stockQty": 50,
+        "unitCost": 1200,
+        "sellingPrice": 2499,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "13",
+        "sku": "ERP-0013",
+        "name": "Cycling Gloves",
+        "size": "Medium",
+        "stockQty": 50,
+        "unitCost": 220,
+        "sellingPrice": 549,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "4",
+        "sku": "ERP-0004",
+        "name": "Dumbbell 5kg",
+        "size": "5kg",
+        "stockQty": 50,
+        "unitCost": 350,
+        "sellingPrice": 699,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "19",
+        "sku": "ERP-0019",
+        "name": "Exercise Bike",
+        "size": "Standard",
+        "stockQty": 50,
+        "unitCost": 8000,
+        "sellingPrice": 13500,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "16",
+        "sku": "ERP-0016",
+        "name": "Foam Roller",
+        "size": "45cm",
+        "stockQty": 50,
+        "unitCost": 260,
+        "sellingPrice": 599,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "10",
+        "sku": "ERP-0010",
+        "name": "Football",
+        "size": "Size 5",
+        "stockQty": 50,
+        "unitCost": 380,
+        "sellingPrice": 850,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "18",
+        "sku": "ERP-0018",
+        "name": "Hiking Backpack",
+        "size": "35L",
+        "stockQty": 50,
+        "unitCost": 850,
+        "sellingPrice": 1799,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "11",
+        "sku": "ERP-0011",
+        "name": "Jump Rope",
+        "size": "Adjustable",
+        "stockQty": 50,
+        "unitCost": 95,
+        "sellingPrice": 249,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "15",
+        "sku": "ERP-0015",
+        "name": "Kettlebell",
+        "size": "8kg",
+        "stockQty": 50,
+        "unitCost": 650,
+        "sellingPrice": 1299,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "7",
+        "sku": "ERP-0007",
+        "name": "Mountain Bike Helmet",
+        "size": "M/L",
+        "stockQty": 50,
+        "unitCost": 600,
+        "sellingPrice": 1199,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "12",
+        "sku": "ERP-0012",
+        "name": "Resistance Bands",
+        "size": "Set of 5",
+        "stockQty": 50,
+        "unitCost": 180,
+        "sellingPrice": 450,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "14",
+        "sku": "ERP-0014",
+        "name": "Running Shoes",
+        "size": "Size 9",
+        "stockQty": 50,
+        "unitCost": 1250,
+        "sellingPrice": 2499,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "20",
+        "sku": "ERP-0020",
+        "name": "Sports Jersey",
+        "size": "Large",
+        "stockQty": 50,
+        "unitCost": 300,
+        "sellingPrice": 799,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "17",
+        "sku": "ERP-0017",
+        "name": "Swim Goggles",
+        "size": "Adult",
+        "stockQty": 50,
+        "unitCost": 180,
+        "sellingPrice": 420,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "5",
+        "sku": "ERP-0005",
+        "name": "Treadmill",
+        "size": "Standard",
+        "stockQty": 50,
+        "unitCost": 12500,
+        "sellingPrice": 18900,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "2",
+        "sku": "ERP-0002",
+        "name": "Volleyball",
+        "size": "Size 5",
+        "stockQty": 50,
+        "unitCost": 380,
+        "sellingPrice": 750,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "8",
+        "sku": "ERP-0008",
+        "name": "Water Bottle",
+        "size": "1L",
+        "stockQty": 50,
+        "unitCost": 150,
+        "sellingPrice": 350,
+        "status": "ACTIVE"
+      },
+      {
+        "productId": "3",
+        "sku": "ERP-0003",
+        "name": "Yoga Mat",
+        "size": "Standard",
+        "stockQty": 50,
+        "unitCost": 200,
+        "sellingPrice": 499,
+        "status": "ACTIVE"
+      }
+    ],
+    "customers": [
+      {
+        "id": "4",
+        "name": "Bay Outdoor Gear",
+        "email": "bayoutdoorgear@example.test",
+        "phone": "09171000003yrtrty",
+        "address": "13 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "9",
+        "name": "Biñan Trail Team",
+        "email": "binantrailteam@example.test",
+        "phone": "09171000008",
+        "address": "18 Main Street, Laguna, Philippines",
+        "status": "INACTIVE"
+      },
+      {
+        "id": "8",
+        "name": "Cabuyao Wellness",
+        "email": "cabuyaowellness@example.test",
+        "phone": "09171000007",
+        "address": "17 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "3",
+        "name": "Calamba Athletics",
+        "email": "calambaathletics@example.test",
+        "phone": "09171000002",
+        "address": "12 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "19",
+        "name": "Calauan Active Club",
+        "email": "calauanactiveclub@example.test",
+        "phone": "09171000018",
+        "address": "28 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "16",
+        "name": "Famy Fitness",
+        "email": "famyfitness@example.test",
+        "phone": "09171000015",
+        "address": "25 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "1",
+        "name": "Laguna Sports Club",
+        "email": "lagunasportsclub@example.test",
+        "phone": "09171000000",
+        "address": "10 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "11",
+        "name": "Liliw Sports Hub",
+        "email": "liliwsportshub@example.test",
+        "phone": "09171000010",
+        "address": "20 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "6",
+        "name": "Los Banos Cyclists",
+        "email": "losbanoscyclists@example.test",
+        "phone": "09171000005",
+        "address": "15 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "13",
+        "name": "Majayjay Trekking",
+        "email": "majayjaytrekking@example.test",
+        "phone": "09171000012",
+        "address": "22 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "12",
+        "name": "Nagcarlan Gym",
+        "email": "nagcarlangym@example.test",
+        "phone": "09171000011",
+        "address": "21 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "14",
+        "name": "Paete Recreation",
+        "email": "paeterecreation@example.test",
+        "phone": "09171000013",
+        "address": "23 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "5",
+        "name": "Pagsanjan Activewear",
+        "email": "pagsanjanactivewear@example.test",
+        "phone": "09171000004",
+        "address": "14 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "18",
+        "name": "Pila Sports Center",
+        "email": "pilasportscenter@example.test",
+        "phone": "09171000017",
+        "address": "27 Main Street, Laguna, Philippines",
+        "status": "INACTIVE"
+      },
+      {
+        "id": "20",
+        "name": "Rizal Sports Academy",
+        "email": "rizalsportsacademy@example.test",
+        "phone": "09171000019",
+        "address": "29 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "24",
+        "name": "roswell",
+        "email": null,
+        "phone": "fsfsdf",
+        "address": null,
+        "status": "ACTIVE"
+      },
+      {
+        "id": "7",
+        "name": "San Pablo Hoops",
+        "email": "sanpablohoops@example.test",
+        "phone": "09171000006",
+        "address": "16 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "2",
+        "name": "Santa Cruz Fitness",
+        "email": "santacruzfitness@example.test",
+        "phone": "09171000001",
+        "address": "11 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "15",
+        "name": "Siniloan Runners",
+        "email": "siniloanrunners@example.test",
+        "phone": "09171000014",
+        "address": "24 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "10",
+        "name": "Sta Rosa Volleyball",
+        "email": "starosavolleyball@example.test",
+        "phone": "09171000009",
+        "address": "19 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "17",
+        "name": "Victoria Badminton",
+        "email": "victoriabadminton@example.test",
+        "phone": "09171000016",
+        "address": "26 Main Street, Laguna, Philippines",
+        "status": "ACTIVE"
+      }
+    ],
+    "suppliers": [
+      {
+        "id": "6",
+        "name": "Active Gear Distribution",
+        "email": "sales6@supplier.example.test",
+        "phone": "09282000005",
+        "address": "25 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Jose Mendoza"
+      },
+      {
+        "id": "11",
+        "name": "Aqua Sports Depot",
+        "email": "sales11@supplier.example.test",
+        "phone": "09282000010",
+        "address": "30 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Ivy Lim"
+      },
+      {
+        "id": "17",
+        "name": "Bayan Fitness Supply",
+        "email": "sales17@supplier.example.test",
+        "phone": "09282000016",
+        "address": "36 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Kara Domingo"
+      },
+      {
+        "id": "9",
+        "name": "Court Essentials PH",
+        "email": "sales9@supplier.example.test",
+        "phone": "09282000008",
+        "address": "28 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Bea Aquino"
+      },
+      {
+        "id": "5",
+        "name": "Cycle Parts Depot",
+        "email": "sales5@supplier.example.test",
+        "phone": "09282000004",
+        "address": "24 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Mika Ramos"
+      },
+      {
+        "id": "19",
+        "name": "Elite Sporting Goods",
+        "email": "sales19@supplier.example.test",
+        "phone": "09282000018",
+        "address": "38 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Dina Mercado"
+      },
+      {
+        "id": "12",
+        "name": "Endurance Merchants",
+        "email": "sales12@supplier.example.test",
+        "phone": "09282000011",
+        "address": "31 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Jules Castillo"
+      },
+      {
+        "id": "13",
+        "name": "Field Play Supply",
+        "email": "sales13@supplier.example.test",
+        "phone": "09282000012",
+        "address": "32 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Ella Rivera"
+      },
+      {
+        "id": "4",
+        "name": "Laguna Outdoor Traders",
+        "email": "sales4@supplier.example.test",
+        "phone": "09282000003",
+        "address": "23 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Paolo Garcia"
+      },
+      {
+        "id": "3",
+        "name": "Metro Fitness Wholesale",
+        "email": "sales3@supplier.example.test",
+        "phone": "09282000002",
+        "address": "22 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Lea Cruz"
+      },
+      {
+        "id": "18",
+        "name": "Northstar Outdoor",
+        "email": "sales18@supplier.example.test",
+        "phone": "09282000017",
+        "address": "37 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Owen Salazar"
+      },
+      {
+        "id": "2",
+        "name": "Pacific Ball Works",
+        "email": "sales2@supplier.example.test",
+        "phone": "09282000001",
+        "address": "21 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Marco Reyes"
+      },
+      {
+        "id": "14",
+        "name": "Peak Performance PH",
+        "email": "sales14@supplier.example.test",
+        "phone": "09282000013",
+        "address": "33 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Luis Navarro"
+      },
+      {
+        "id": "7",
+        "name": "Prime Sportswear Co",
+        "email": "sales7@supplier.example.test",
+        "phone": "09282000006",
+        "address": "26 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Rina Flores"
+      },
+      {
+        "id": "15",
+        "name": "Pro Training Goods",
+        "email": "sales15@supplier.example.test",
+        "phone": "09282000014",
+        "address": "34 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Tina Villanueva"
+      },
+      {
+        "id": "20",
+        "name": "Racket World PH",
+        "email": "sales20@supplier.example.test",
+        "phone": "09282000019",
+        "address": "39 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Ralph Dela Cruz"
+      },
+      {
+        "id": "10",
+        "name": "Strength Source",
+        "email": "sales10@supplier.example.test",
+        "phone": "09282000009",
+        "address": "29 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Nico Torres"
+      },
+      {
+        "id": "1",
+        "name": "Summit Sports Supply",
+        "email": "sales1@supplier.example.test",
+        "phone": "09282000000",
+        "address": "20 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Ana Santos"
+      },
+      {
+        "id": "8",
+        "name": "Trailhead Equipment",
+        "email": "sales8@supplier.example.test",
+        "phone": "09282000007",
+        "address": "27 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Carlo Bautista"
+      },
+      {
+        "id": "16",
+        "name": "Victory Sports Trading",
+        "email": "sales16@supplier.example.test",
+        "phone": "09282000015",
+        "address": "35 Commerce Road, Laguna, Philippines",
+        "status": "ACTIVE",
+        "contactPerson": "Ben Perez"
+      }
+    ],
+    "sales": [
+      {
+        "id": "25",
+        "party": "Cabuyao Wellness",
+        "partyId": "8",
+        "timestamp": "2026-10-09T16:00:00.000Z",
+        "status": "CANCELLED",
+        "total": "63920.00",
+        "createdBy": "Christine Valdellon",
+        "items": [
+          {
+            "id": "27",
+            "productId": "20",
+            "name": "Sports Jersey",
+            "sku": "ERP-0020",
+            "quantity": 80,
+            "unitPrice": "799.00",
+            "lineTotal": "63920.00"
+          }
+        ]
+      },
+      {
+        "id": "20",
+        "party": "Rizal Sports Academy",
+        "partyId": "20",
+        "timestamp": "2026-09-20T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "1598.00",
+        "createdBy": "Ana Santos",
+        "items": [
+          {
+            "id": "20",
+            "productId": "20",
+            "name": "Sports Jersey",
+            "sku": "ERP-0020",
+            "quantity": 2,
+            "unitPrice": "799.00",
+            "lineTotal": "1598.00"
+          }
+        ]
+      },
+      {
+        "id": "19",
+        "party": "Calauan Active Club",
+        "partyId": "19",
+        "timestamp": "2026-09-19T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "27000.00",
+        "createdBy": "Mika Ramos",
+        "items": [
+          {
+            "id": "19",
+            "productId": "19",
+            "name": "Exercise Bike",
+            "sku": "ERP-0019",
+            "quantity": 2,
+            "unitPrice": "13500.00",
+            "lineTotal": "27000.00"
+          }
+        ]
+      },
+      {
+        "id": "18",
+        "party": "Pila Sports Center",
+        "partyId": "18",
+        "timestamp": "2026-09-18T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "3598.00",
+        "createdBy": "Paolo Garcia",
+        "items": [
+          {
+            "id": "18",
+            "productId": "18",
+            "name": "Hiking Backpack",
+            "sku": "ERP-0018",
+            "quantity": 2,
+            "unitPrice": "1799.00",
+            "lineTotal": "3598.00"
+          }
+        ]
+      },
+      {
+        "id": "17",
+        "party": "Victoria Badminton",
+        "partyId": "17",
+        "timestamp": "2026-09-17T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "840.00",
+        "createdBy": "Lea Cruz",
+        "items": [
+          {
+            "id": "17",
+            "productId": "17",
+            "name": "Swim Goggles",
+            "sku": "ERP-0017",
+            "quantity": 2,
+            "unitPrice": "420.00",
+            "lineTotal": "840.00"
+          }
+        ]
+      },
+      {
+        "id": "16",
+        "party": "Famy Fitness",
+        "partyId": "16",
+        "timestamp": "2026-09-16T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "1198.00",
+        "createdBy": "Marco Reyes",
+        "items": [
+          {
+            "id": "16",
+            "productId": "16",
+            "name": "Foam Roller",
+            "sku": "ERP-0016",
+            "quantity": 2,
+            "unitPrice": "599.00",
+            "lineTotal": "1198.00"
+          }
+        ]
+      },
+      {
+        "id": "15",
+        "party": "Siniloan Runners",
+        "partyId": "15",
+        "timestamp": "2026-09-15T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "2598.00",
+        "createdBy": "Ana Santos",
+        "items": [
+          {
+            "id": "15",
+            "productId": "15",
+            "name": "Kettlebell",
+            "sku": "ERP-0015",
+            "quantity": 2,
+            "unitPrice": "1299.00",
+            "lineTotal": "2598.00"
+          }
+        ]
+      },
+      {
+        "id": "14",
+        "party": "Paete Recreation",
+        "partyId": "14",
+        "timestamp": "2026-09-14T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "4998.00",
+        "createdBy": "Mika Ramos",
+        "items": [
+          {
+            "id": "14",
+            "productId": "14",
+            "name": "Running Shoes",
+            "sku": "ERP-0014",
+            "quantity": 2,
+            "unitPrice": "2499.00",
+            "lineTotal": "4998.00"
+          }
+        ]
+      },
+      {
+        "id": "13",
+        "party": "Majayjay Trekking",
+        "partyId": "13",
+        "timestamp": "2026-09-13T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "1098.00",
+        "createdBy": "Paolo Garcia",
+        "items": [
+          {
+            "id": "13",
+            "productId": "13",
+            "name": "Cycling Gloves",
+            "sku": "ERP-0013",
+            "quantity": 2,
+            "unitPrice": "549.00",
+            "lineTotal": "1098.00"
+          }
+        ]
+      },
+      {
+        "id": "12",
+        "party": "Nagcarlan Gym",
+        "partyId": "12",
+        "timestamp": "2026-09-12T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "900.00",
+        "createdBy": "Lea Cruz",
+        "items": [
+          {
+            "id": "12",
+            "productId": "12",
+            "name": "Resistance Bands",
+            "sku": "ERP-0012",
+            "quantity": 2,
+            "unitPrice": "450.00",
+            "lineTotal": "900.00"
+          }
+        ]
+      },
+      {
+        "id": "11",
+        "party": "Liliw Sports Hub",
+        "partyId": "11",
+        "timestamp": "2026-09-11T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "498.00",
+        "createdBy": "Marco Reyes",
+        "items": [
+          {
+            "id": "11",
+            "productId": "11",
+            "name": "Jump Rope",
+            "sku": "ERP-0011",
+            "quantity": 2,
+            "unitPrice": "249.00",
+            "lineTotal": "498.00"
+          }
+        ]
+      },
+      {
+        "id": "10",
+        "party": "Sta Rosa Volleyball",
+        "partyId": "10",
+        "timestamp": "2026-09-10T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "1700.00",
+        "createdBy": "Ana Santos",
+        "items": [
+          {
+            "id": "10",
+            "productId": "10",
+            "name": "Football",
+            "sku": "ERP-0010",
+            "quantity": 2,
+            "unitPrice": "850.00",
+            "lineTotal": "1700.00"
+          }
+        ]
+      },
+      {
+        "id": "9",
+        "party": "Biñan Trail Team",
+        "partyId": "9",
+        "timestamp": "2026-09-09T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "1900.00",
+        "createdBy": "Mika Ramos",
+        "items": [
+          {
+            "id": "9",
+            "productId": "9",
+            "name": "Badminton Racket",
+            "sku": "ERP-0009",
+            "quantity": 2,
+            "unitPrice": "950.00",
+            "lineTotal": "1900.00"
+          }
+        ]
+      },
+      {
+        "id": "8",
+        "party": "Cabuyao Wellness",
+        "partyId": "8",
+        "timestamp": "2026-09-08T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "700.00",
+        "createdBy": "Paolo Garcia",
+        "items": [
+          {
+            "id": "8",
+            "productId": "8",
+            "name": "Water Bottle",
+            "sku": "ERP-0008",
+            "quantity": 2,
+            "unitPrice": "350.00",
+            "lineTotal": "700.00"
+          }
+        ]
+      },
+      {
+        "id": "7",
+        "party": "San Pablo Hoops",
+        "partyId": "7",
+        "timestamp": "2026-09-07T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "2398.00",
+        "createdBy": "Lea Cruz",
+        "items": [
+          {
+            "id": "7",
+            "productId": "7",
+            "name": "Mountain Bike Helmet",
+            "sku": "ERP-0007",
+            "quantity": 2,
+            "unitPrice": "1199.00",
+            "lineTotal": "2398.00"
+          }
+        ]
+      },
+      {
+        "id": "6",
+        "party": "Los Banos Cyclists",
+        "partyId": "6",
+        "timestamp": "2026-09-06T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "4998.00",
+        "createdBy": "Marco Reyes",
+        "items": [
+          {
+            "id": "6",
+            "productId": "6",
+            "name": "Camping Tent",
+            "sku": "ERP-0006",
+            "quantity": 2,
+            "unitPrice": "2499.00",
+            "lineTotal": "4998.00"
+          }
+        ]
+      },
+      {
+        "id": "5",
+        "party": "Pagsanjan Activewear",
+        "partyId": "5",
+        "timestamp": "2026-09-05T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "37800.00",
+        "createdBy": "Ana Santos",
+        "items": [
+          {
+            "id": "5",
+            "productId": "5",
+            "name": "Treadmill",
+            "sku": "ERP-0005",
+            "quantity": 2,
+            "unitPrice": "18900.00",
+            "lineTotal": "37800.00"
+          }
+        ]
+      },
+      {
+        "id": "4",
+        "party": "Bay Outdoor Gear",
+        "partyId": "4",
+        "timestamp": "2026-09-04T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "1398.00",
+        "createdBy": "Mika Ramos",
+        "items": [
+          {
+            "id": "4",
+            "productId": "4",
+            "name": "Dumbbell 5kg",
+            "sku": "ERP-0004",
+            "quantity": 2,
+            "unitPrice": "699.00",
+            "lineTotal": "1398.00"
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "party": "Calamba Athletics",
+        "partyId": "3",
+        "timestamp": "2026-09-03T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "998.00",
+        "createdBy": "Paolo Garcia",
+        "items": [
+          {
+            "id": "3",
+            "productId": "3",
+            "name": "Yoga Mat",
+            "sku": "ERP-0003",
+            "quantity": 2,
+            "unitPrice": "499.00",
+            "lineTotal": "998.00"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "party": "Santa Cruz Fitness",
+        "partyId": "2",
+        "timestamp": "2026-09-02T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "1500.00",
+        "createdBy": "Lea Cruz",
+        "items": [
+          {
+            "id": "2",
+            "productId": "2",
+            "name": "Volleyball",
+            "sku": "ERP-0002",
+            "quantity": 2,
+            "unitPrice": "750.00",
+            "lineTotal": "1500.00"
+          }
+        ]
+      },
+      {
+        "id": "1",
+        "party": "Laguna Sports Club",
+        "partyId": "1",
+        "timestamp": "2026-09-01T02:00:00.000Z",
+        "status": "COMPLETED",
+        "total": "1798.00",
+        "createdBy": "Marco Reyes",
+        "items": [
+          {
+            "id": "1",
+            "productId": "1",
+            "name": "Basketball",
+            "sku": "ERP-0001",
+            "quantity": 2,
+            "unitPrice": "899.00",
+            "lineTotal": "1798.00"
+          }
+        ]
+      }
+    ],
+    "purchases": [
+      {
+        "id": "20",
+        "party": "Racket World PH",
+        "partyId": "20",
+        "timestamp": "2026-08-20T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "600.00",
+        "createdBy": "Lea Cruz",
+        "items": [
+          {
+            "id": "20",
+            "productId": "20",
+            "name": "Sports Jersey",
+            "sku": "ERP-0020",
+            "quantity": 2,
+            "unitPrice": "300.00",
+            "lineTotal": "600.00"
+          }
+        ]
+      },
+      {
+        "id": "19",
+        "party": "Elite Sporting Goods",
+        "partyId": "19",
+        "timestamp": "2026-08-19T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "16000.00",
+        "createdBy": "Rina Flores",
+        "items": [
+          {
+            "id": "19",
+            "productId": "19",
+            "name": "Exercise Bike",
+            "sku": "ERP-0019",
+            "quantity": 2,
+            "unitPrice": "8000.00",
+            "lineTotal": "16000.00"
+          }
+        ]
+      },
+      {
+        "id": "18",
+        "party": "Northstar Outdoor",
+        "partyId": "18",
+        "timestamp": "2026-08-18T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "1700.00",
+        "createdBy": "Jose Mendoza",
+        "items": [
+          {
+            "id": "18",
+            "productId": "18",
+            "name": "Hiking Backpack",
+            "sku": "ERP-0018",
+            "quantity": 2,
+            "unitPrice": "850.00",
+            "lineTotal": "1700.00"
+          }
+        ]
+      },
+      {
+        "id": "17",
+        "party": "Bayan Fitness Supply",
+        "partyId": "17",
+        "timestamp": "2026-08-17T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "360.00",
+        "createdBy": "Mika Ramos",
+        "items": [
+          {
+            "id": "17",
+            "productId": "17",
+            "name": "Swim Goggles",
+            "sku": "ERP-0017",
+            "quantity": 2,
+            "unitPrice": "180.00",
+            "lineTotal": "360.00"
+          }
+        ]
+      },
+      {
+        "id": "16",
+        "party": "Victory Sports Trading",
+        "partyId": "16",
+        "timestamp": "2026-08-16T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "520.00",
+        "createdBy": "Paolo Garcia",
+        "items": [
+          {
+            "id": "16",
+            "productId": "16",
+            "name": "Foam Roller",
+            "sku": "ERP-0016",
+            "quantity": 2,
+            "unitPrice": "260.00",
+            "lineTotal": "520.00"
+          }
+        ]
+      },
+      {
+        "id": "15",
+        "party": "Pro Training Goods",
+        "partyId": "15",
+        "timestamp": "2026-08-15T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "1300.00",
+        "createdBy": "Lea Cruz",
+        "items": [
+          {
+            "id": "15",
+            "productId": "15",
+            "name": "Kettlebell",
+            "sku": "ERP-0015",
+            "quantity": 2,
+            "unitPrice": "650.00",
+            "lineTotal": "1300.00"
+          }
+        ]
+      },
+      {
+        "id": "14",
+        "party": "Peak Performance PH",
+        "partyId": "14",
+        "timestamp": "2026-08-14T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "2500.00",
+        "createdBy": "Rina Flores",
+        "items": [
+          {
+            "id": "14",
+            "productId": "14",
+            "name": "Running Shoes",
+            "sku": "ERP-0014",
+            "quantity": 2,
+            "unitPrice": "1250.00",
+            "lineTotal": "2500.00"
+          }
+        ]
+      },
+      {
+        "id": "13",
+        "party": "Field Play Supply",
+        "partyId": "13",
+        "timestamp": "2026-08-13T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "440.00",
+        "createdBy": "Jose Mendoza",
+        "items": [
+          {
+            "id": "13",
+            "productId": "13",
+            "name": "Cycling Gloves",
+            "sku": "ERP-0013",
+            "quantity": 2,
+            "unitPrice": "220.00",
+            "lineTotal": "440.00"
+          }
+        ]
+      },
+      {
+        "id": "12",
+        "party": "Endurance Merchants",
+        "partyId": "12",
+        "timestamp": "2026-08-12T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "360.00",
+        "createdBy": "Mika Ramos",
+        "items": [
+          {
+            "id": "12",
+            "productId": "12",
+            "name": "Resistance Bands",
+            "sku": "ERP-0012",
+            "quantity": 2,
+            "unitPrice": "180.00",
+            "lineTotal": "360.00"
+          }
+        ]
+      },
+      {
+        "id": "11",
+        "party": "Aqua Sports Depot",
+        "partyId": "11",
+        "timestamp": "2026-08-11T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "190.00",
+        "createdBy": "Paolo Garcia",
+        "items": [
+          {
+            "id": "11",
+            "productId": "11",
+            "name": "Jump Rope",
+            "sku": "ERP-0011",
+            "quantity": 2,
+            "unitPrice": "95.00",
+            "lineTotal": "190.00"
+          }
+        ]
+      },
+      {
+        "id": "10",
+        "party": "Strength Source",
+        "partyId": "10",
+        "timestamp": "2026-08-10T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "760.00",
+        "createdBy": "Lea Cruz",
+        "items": [
+          {
+            "id": "10",
+            "productId": "10",
+            "name": "Football",
+            "sku": "ERP-0010",
+            "quantity": 2,
+            "unitPrice": "380.00",
+            "lineTotal": "760.00"
+          }
+        ]
+      },
+      {
+        "id": "9",
+        "party": "Court Essentials PH",
+        "partyId": "9",
+        "timestamp": "2026-08-09T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "840.00",
+        "createdBy": "Rina Flores",
+        "items": [
+          {
+            "id": "9",
+            "productId": "9",
+            "name": "Badminton Racket",
+            "sku": "ERP-0009",
+            "quantity": 2,
+            "unitPrice": "420.00",
+            "lineTotal": "840.00"
+          }
+        ]
+      },
+      {
+        "id": "8",
+        "party": "Trailhead Equipment",
+        "partyId": "8",
+        "timestamp": "2026-08-08T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "300.00",
+        "createdBy": "Jose Mendoza",
+        "items": [
+          {
+            "id": "8",
+            "productId": "8",
+            "name": "Water Bottle",
+            "sku": "ERP-0008",
+            "quantity": 2,
+            "unitPrice": "150.00",
+            "lineTotal": "300.00"
+          }
+        ]
+      },
+      {
+        "id": "7",
+        "party": "Prime Sportswear Co",
+        "partyId": "7",
+        "timestamp": "2026-08-07T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "1200.00",
+        "createdBy": "Mika Ramos",
+        "items": [
+          {
+            "id": "7",
+            "productId": "7",
+            "name": "Mountain Bike Helmet",
+            "sku": "ERP-0007",
+            "quantity": 2,
+            "unitPrice": "600.00",
+            "lineTotal": "1200.00"
+          }
+        ]
+      },
+      {
+        "id": "6",
+        "party": "Active Gear Distribution",
+        "partyId": "6",
+        "timestamp": "2026-08-06T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "2400.00",
+        "createdBy": "Paolo Garcia",
+        "items": [
+          {
+            "id": "6",
+            "productId": "6",
+            "name": "Camping Tent",
+            "sku": "ERP-0006",
+            "quantity": 2,
+            "unitPrice": "1200.00",
+            "lineTotal": "2400.00"
+          }
+        ]
+      },
+      {
+        "id": "5",
+        "party": "Cycle Parts Depot",
+        "partyId": "5",
+        "timestamp": "2026-08-05T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "25000.00",
+        "createdBy": "Lea Cruz",
+        "items": [
+          {
+            "id": "5",
+            "productId": "5",
+            "name": "Treadmill",
+            "sku": "ERP-0005",
+            "quantity": 2,
+            "unitPrice": "12500.00",
+            "lineTotal": "25000.00"
+          }
+        ]
+      },
+      {
+        "id": "4",
+        "party": "Laguna Outdoor Traders",
+        "partyId": "4",
+        "timestamp": "2026-08-04T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "700.00",
+        "createdBy": "Rina Flores",
+        "items": [
+          {
+            "id": "4",
+            "productId": "4",
+            "name": "Dumbbell 5kg",
+            "sku": "ERP-0004",
+            "quantity": 2,
+            "unitPrice": "350.00",
+            "lineTotal": "700.00"
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "party": "Metro Fitness Wholesale",
+        "partyId": "3",
+        "timestamp": "2026-08-03T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "400.00",
+        "createdBy": "Jose Mendoza",
+        "items": [
+          {
+            "id": "3",
+            "productId": "3",
+            "name": "Yoga Mat",
+            "sku": "ERP-0003",
+            "quantity": 2,
+            "unitPrice": "200.00",
+            "lineTotal": "400.00"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "party": "Pacific Ball Works",
+        "partyId": "2",
+        "timestamp": "2026-08-02T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "760.00",
+        "createdBy": "Mika Ramos",
+        "items": [
+          {
+            "id": "2",
+            "productId": "2",
+            "name": "Volleyball",
+            "sku": "ERP-0002",
+            "quantity": 2,
+            "unitPrice": "380.00",
+            "lineTotal": "760.00"
+          }
+        ]
+      },
+      {
+        "id": "1",
+        "party": "Summit Sports Supply",
+        "partyId": "1",
+        "timestamp": "2026-08-01T01:00:00.000Z",
+        "status": "RECEIVED",
+        "total": "900.00",
+        "createdBy": "Paolo Garcia",
+        "items": [
+          {
+            "id": "1",
+            "productId": "1",
+            "name": "Basketball",
+            "sku": "ERP-0001",
+            "quantity": 2,
+            "unitPrice": "450.00",
+            "lineTotal": "900.00"
+          }
+        ]
+      }
+    ],
+    "movements": [
+      {
+        "id": "40",
+        "timestamp": "2026-09-20T03:00:00.000Z",
+        "productId": "20",
+        "productName": "Sports Jersey",
+        "productSku": "ERP-0020",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "20",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "38",
+        "timestamp": "2026-09-19T03:00:00.000Z",
+        "productId": "19",
+        "productName": "Exercise Bike",
+        "productSku": "ERP-0019",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "19",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "36",
+        "timestamp": "2026-09-18T03:00:00.000Z",
+        "productId": "18",
+        "productName": "Hiking Backpack",
+        "productSku": "ERP-0018",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "18",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "34",
+        "timestamp": "2026-09-17T03:00:00.000Z",
+        "productId": "17",
+        "productName": "Swim Goggles",
+        "productSku": "ERP-0017",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "17",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "32",
+        "timestamp": "2026-09-16T03:00:00.000Z",
+        "productId": "16",
+        "productName": "Foam Roller",
+        "productSku": "ERP-0016",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "16",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "30",
+        "timestamp": "2026-09-15T03:00:00.000Z",
+        "productId": "15",
+        "productName": "Kettlebell",
+        "productSku": "ERP-0015",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "15",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "28",
+        "timestamp": "2026-09-14T03:00:00.000Z",
+        "productId": "14",
+        "productName": "Running Shoes",
+        "productSku": "ERP-0014",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "14",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "26",
+        "timestamp": "2026-09-13T03:00:00.000Z",
+        "productId": "13",
+        "productName": "Cycling Gloves",
+        "productSku": "ERP-0013",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "13",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "24",
+        "timestamp": "2026-09-12T03:00:00.000Z",
+        "productId": "12",
+        "productName": "Resistance Bands",
+        "productSku": "ERP-0012",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "12",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "22",
+        "timestamp": "2026-09-11T03:00:00.000Z",
+        "productId": "11",
+        "productName": "Jump Rope",
+        "productSku": "ERP-0011",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "11",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "20",
+        "timestamp": "2026-09-10T03:00:00.000Z",
+        "productId": "10",
+        "productName": "Football",
+        "productSku": "ERP-0010",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "10",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "18",
+        "timestamp": "2026-09-09T03:00:00.000Z",
+        "productId": "9",
+        "productName": "Badminton Racket",
+        "productSku": "ERP-0009",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "9",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "16",
+        "timestamp": "2026-09-08T03:00:00.000Z",
+        "productId": "8",
+        "productName": "Water Bottle",
+        "productSku": "ERP-0008",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "8",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "14",
+        "timestamp": "2026-09-07T03:00:00.000Z",
+        "productId": "7",
+        "productName": "Mountain Bike Helmet",
+        "productSku": "ERP-0007",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "7",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "12",
+        "timestamp": "2026-09-06T03:00:00.000Z",
+        "productId": "6",
+        "productName": "Camping Tent",
+        "productSku": "ERP-0006",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "6",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "10",
+        "timestamp": "2026-09-05T03:00:00.000Z",
+        "productId": "5",
+        "productName": "Treadmill",
+        "productSku": "ERP-0005",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "5",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "8",
+        "timestamp": "2026-09-04T03:00:00.000Z",
+        "productId": "4",
+        "productName": "Dumbbell 5kg",
+        "productSku": "ERP-0004",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "4",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "6",
+        "timestamp": "2026-09-03T03:00:00.000Z",
+        "productId": "3",
+        "productName": "Yoga Mat",
+        "productSku": "ERP-0003",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "3",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "4",
+        "timestamp": "2026-09-02T03:00:00.000Z",
+        "productId": "2",
+        "productName": "Volleyball",
+        "productSku": "ERP-0002",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "2",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "2",
+        "timestamp": "2026-09-01T03:00:00.000Z",
+        "productId": "1",
+        "productName": "Basketball",
+        "productSku": "ERP-0001",
+        "type": "SALE",
+        "quantity": 2,
+        "referenceType": "ORDER",
+        "referenceId": "1",
+        "createdBy": "Marco Reyes"
+      },
+      {
+        "id": "39",
+        "timestamp": "2026-08-20T04:00:00.000Z",
+        "productId": "20",
+        "productName": "Sports Jersey",
+        "productSku": "ERP-0020",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "20",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "37",
+        "timestamp": "2026-08-19T04:00:00.000Z",
+        "productId": "19",
+        "productName": "Exercise Bike",
+        "productSku": "ERP-0019",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "19",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "35",
+        "timestamp": "2026-08-18T04:00:00.000Z",
+        "productId": "18",
+        "productName": "Hiking Backpack",
+        "productSku": "ERP-0018",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "18",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "33",
+        "timestamp": "2026-08-17T04:00:00.000Z",
+        "productId": "17",
+        "productName": "Swim Goggles",
+        "productSku": "ERP-0017",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "17",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "31",
+        "timestamp": "2026-08-16T04:00:00.000Z",
+        "productId": "16",
+        "productName": "Foam Roller",
+        "productSku": "ERP-0016",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "16",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "29",
+        "timestamp": "2026-08-15T04:00:00.000Z",
+        "productId": "15",
+        "productName": "Kettlebell",
+        "productSku": "ERP-0015",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "15",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "27",
+        "timestamp": "2026-08-14T04:00:00.000Z",
+        "productId": "14",
+        "productName": "Running Shoes",
+        "productSku": "ERP-0014",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "14",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "25",
+        "timestamp": "2026-08-13T04:00:00.000Z",
+        "productId": "13",
+        "productName": "Cycling Gloves",
+        "productSku": "ERP-0013",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "13",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "23",
+        "timestamp": "2026-08-12T04:00:00.000Z",
+        "productId": "12",
+        "productName": "Resistance Bands",
+        "productSku": "ERP-0012",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "12",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "21",
+        "timestamp": "2026-08-11T04:00:00.000Z",
+        "productId": "11",
+        "productName": "Jump Rope",
+        "productSku": "ERP-0011",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "11",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "19",
+        "timestamp": "2026-08-10T04:00:00.000Z",
+        "productId": "10",
+        "productName": "Football",
+        "productSku": "ERP-0010",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "10",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "17",
+        "timestamp": "2026-08-09T04:00:00.000Z",
+        "productId": "9",
+        "productName": "Badminton Racket",
+        "productSku": "ERP-0009",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "9",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "15",
+        "timestamp": "2026-08-08T04:00:00.000Z",
+        "productId": "8",
+        "productName": "Water Bottle",
+        "productSku": "ERP-0008",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "8",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "13",
+        "timestamp": "2026-08-07T04:00:00.000Z",
+        "productId": "7",
+        "productName": "Mountain Bike Helmet",
+        "productSku": "ERP-0007",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "7",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "11",
+        "timestamp": "2026-08-06T04:00:00.000Z",
+        "productId": "6",
+        "productName": "Camping Tent",
+        "productSku": "ERP-0006",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "6",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "9",
+        "timestamp": "2026-08-05T04:00:00.000Z",
+        "productId": "5",
+        "productName": "Treadmill",
+        "productSku": "ERP-0005",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "5",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "7",
+        "timestamp": "2026-08-04T04:00:00.000Z",
+        "productId": "4",
+        "productName": "Dumbbell 5kg",
+        "productSku": "ERP-0004",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "4",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "5",
+        "timestamp": "2026-08-03T04:00:00.000Z",
+        "productId": "3",
+        "productName": "Yoga Mat",
+        "productSku": "ERP-0003",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "3",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "3",
+        "timestamp": "2026-08-02T04:00:00.000Z",
+        "productId": "2",
+        "productName": "Volleyball",
+        "productSku": "ERP-0002",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "2",
+        "createdBy": "Lea Cruz"
+      },
+      {
+        "id": "1",
+        "timestamp": "2026-08-01T04:00:00.000Z",
+        "productId": "1",
+        "productName": "Basketball",
+        "productSku": "ERP-0001",
+        "type": "PURCHASE",
+        "quantity": 2,
+        "referenceType": "PURCHASE_ORDER",
+        "referenceId": "1",
+        "createdBy": "Lea Cruz"
+      }
+    ],
+    "ledger": [
+      {
+        "id": "80",
+        "timestamp": "2026-09-20T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "1598.00",
+        "reference": "ORDER #20",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "79",
+        "timestamp": "2026-09-20T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "1598.00",
+        "reference": "ORDER #20",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "76",
+        "timestamp": "2026-09-19T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "27000.00",
+        "reference": "ORDER #19",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "75",
+        "timestamp": "2026-09-19T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "27000.00",
+        "reference": "ORDER #19",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "72",
+        "timestamp": "2026-09-18T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "3598.00",
+        "reference": "ORDER #18",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "71",
+        "timestamp": "2026-09-18T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "3598.00",
+        "reference": "ORDER #18",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "68",
+        "timestamp": "2026-09-17T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "840.00",
+        "reference": "ORDER #17",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "67",
+        "timestamp": "2026-09-17T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "840.00",
+        "reference": "ORDER #17",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "64",
+        "timestamp": "2026-09-16T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "1198.00",
+        "reference": "ORDER #16",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "63",
+        "timestamp": "2026-09-16T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "1198.00",
+        "reference": "ORDER #16",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "60",
+        "timestamp": "2026-09-15T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "2598.00",
+        "reference": "ORDER #15",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "59",
+        "timestamp": "2026-09-15T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "2598.00",
+        "reference": "ORDER #15",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "56",
+        "timestamp": "2026-09-14T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "4998.00",
+        "reference": "ORDER #14",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "55",
+        "timestamp": "2026-09-14T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "4998.00",
+        "reference": "ORDER #14",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "52",
+        "timestamp": "2026-09-13T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "1098.00",
+        "reference": "ORDER #13",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "51",
+        "timestamp": "2026-09-13T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "1098.00",
+        "reference": "ORDER #13",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "48",
+        "timestamp": "2026-09-12T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "900.00",
+        "reference": "ORDER #12",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "47",
+        "timestamp": "2026-09-12T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "900.00",
+        "reference": "ORDER #12",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "44",
+        "timestamp": "2026-09-11T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "498.00",
+        "reference": "ORDER #11",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "43",
+        "timestamp": "2026-09-11T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "498.00",
+        "reference": "ORDER #11",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "40",
+        "timestamp": "2026-09-10T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "1700.00",
+        "reference": "ORDER #10",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "39",
+        "timestamp": "2026-09-10T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "1700.00",
+        "reference": "ORDER #10",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "36",
+        "timestamp": "2026-09-09T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "1900.00",
+        "reference": "ORDER #9",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "35",
+        "timestamp": "2026-09-09T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "1900.00",
+        "reference": "ORDER #9",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "32",
+        "timestamp": "2026-09-08T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "700.00",
+        "reference": "ORDER #8",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "31",
+        "timestamp": "2026-09-08T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "700.00",
+        "reference": "ORDER #8",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "28",
+        "timestamp": "2026-09-07T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "2398.00",
+        "reference": "ORDER #7",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "27",
+        "timestamp": "2026-09-07T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "2398.00",
+        "reference": "ORDER #7",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "24",
+        "timestamp": "2026-09-06T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "4998.00",
+        "reference": "ORDER #6",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "23",
+        "timestamp": "2026-09-06T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "4998.00",
+        "reference": "ORDER #6",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "20",
+        "timestamp": "2026-09-05T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "37800.00",
+        "reference": "ORDER #5",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "19",
+        "timestamp": "2026-09-05T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "37800.00",
+        "reference": "ORDER #5",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "16",
+        "timestamp": "2026-09-04T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "1398.00",
+        "reference": "ORDER #4",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "15",
+        "timestamp": "2026-09-04T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "1398.00",
+        "reference": "ORDER #4",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "12",
+        "timestamp": "2026-09-03T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "998.00",
+        "reference": "ORDER #3",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "11",
+        "timestamp": "2026-09-03T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "998.00",
+        "reference": "ORDER #3",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "8",
+        "timestamp": "2026-09-02T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "1500.00",
+        "reference": "ORDER #2",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "7",
+        "timestamp": "2026-09-02T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "1500.00",
+        "reference": "ORDER #2",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "4",
+        "timestamp": "2026-09-01T03:00:00.000Z",
+        "account": "Sales Revenue",
+        "type": "CREDIT",
+        "amount": "1798.00",
+        "reference": "ORDER #1",
+        "description": "Revenue from sale",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "3",
+        "timestamp": "2026-09-01T03:00:00.000Z",
+        "account": "Cash",
+        "type": "DEBIT",
+        "amount": "1798.00",
+        "reference": "ORDER #1",
+        "description": "Customer payment",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "78",
+        "timestamp": "2026-08-20T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "600.00",
+        "reference": "PURCHASE_ORDER #20",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "77",
+        "timestamp": "2026-08-20T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "600.00",
+        "reference": "PURCHASE_ORDER #20",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "74",
+        "timestamp": "2026-08-19T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "16000.00",
+        "reference": "PURCHASE_ORDER #19",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "73",
+        "timestamp": "2026-08-19T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "16000.00",
+        "reference": "PURCHASE_ORDER #19",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "70",
+        "timestamp": "2026-08-18T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "1700.00",
+        "reference": "PURCHASE_ORDER #18",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "69",
+        "timestamp": "2026-08-18T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "1700.00",
+        "reference": "PURCHASE_ORDER #18",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "66",
+        "timestamp": "2026-08-17T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "360.00",
+        "reference": "PURCHASE_ORDER #17",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "65",
+        "timestamp": "2026-08-17T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "360.00",
+        "reference": "PURCHASE_ORDER #17",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "62",
+        "timestamp": "2026-08-16T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "520.00",
+        "reference": "PURCHASE_ORDER #16",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "61",
+        "timestamp": "2026-08-16T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "520.00",
+        "reference": "PURCHASE_ORDER #16",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "58",
+        "timestamp": "2026-08-15T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "1300.00",
+        "reference": "PURCHASE_ORDER #15",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "57",
+        "timestamp": "2026-08-15T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "1300.00",
+        "reference": "PURCHASE_ORDER #15",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "54",
+        "timestamp": "2026-08-14T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "2500.00",
+        "reference": "PURCHASE_ORDER #14",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "53",
+        "timestamp": "2026-08-14T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "2500.00",
+        "reference": "PURCHASE_ORDER #14",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "50",
+        "timestamp": "2026-08-13T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "440.00",
+        "reference": "PURCHASE_ORDER #13",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "49",
+        "timestamp": "2026-08-13T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "440.00",
+        "reference": "PURCHASE_ORDER #13",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "46",
+        "timestamp": "2026-08-12T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "360.00",
+        "reference": "PURCHASE_ORDER #12",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "45",
+        "timestamp": "2026-08-12T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "360.00",
+        "reference": "PURCHASE_ORDER #12",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "42",
+        "timestamp": "2026-08-11T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "190.00",
+        "reference": "PURCHASE_ORDER #11",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "41",
+        "timestamp": "2026-08-11T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "190.00",
+        "reference": "PURCHASE_ORDER #11",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "38",
+        "timestamp": "2026-08-10T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "760.00",
+        "reference": "PURCHASE_ORDER #10",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "37",
+        "timestamp": "2026-08-10T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "760.00",
+        "reference": "PURCHASE_ORDER #10",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "34",
+        "timestamp": "2026-08-09T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "840.00",
+        "reference": "PURCHASE_ORDER #9",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "33",
+        "timestamp": "2026-08-09T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "840.00",
+        "reference": "PURCHASE_ORDER #9",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "30",
+        "timestamp": "2026-08-08T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "300.00",
+        "reference": "PURCHASE_ORDER #8",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "29",
+        "timestamp": "2026-08-08T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "300.00",
+        "reference": "PURCHASE_ORDER #8",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "26",
+        "timestamp": "2026-08-07T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "1200.00",
+        "reference": "PURCHASE_ORDER #7",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "25",
+        "timestamp": "2026-08-07T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "1200.00",
+        "reference": "PURCHASE_ORDER #7",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "22",
+        "timestamp": "2026-08-06T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "2400.00",
+        "reference": "PURCHASE_ORDER #6",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "21",
+        "timestamp": "2026-08-06T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "2400.00",
+        "reference": "PURCHASE_ORDER #6",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "18",
+        "timestamp": "2026-08-05T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "25000.00",
+        "reference": "PURCHASE_ORDER #5",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "17",
+        "timestamp": "2026-08-05T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "25000.00",
+        "reference": "PURCHASE_ORDER #5",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "14",
+        "timestamp": "2026-08-04T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "700.00",
+        "reference": "PURCHASE_ORDER #4",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "13",
+        "timestamp": "2026-08-04T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "700.00",
+        "reference": "PURCHASE_ORDER #4",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "10",
+        "timestamp": "2026-08-03T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "400.00",
+        "reference": "PURCHASE_ORDER #3",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "9",
+        "timestamp": "2026-08-03T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "400.00",
+        "reference": "PURCHASE_ORDER #3",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "6",
+        "timestamp": "2026-08-02T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "760.00",
+        "reference": "PURCHASE_ORDER #2",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "5",
+        "timestamp": "2026-08-02T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "760.00",
+        "reference": "PURCHASE_ORDER #2",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "2",
+        "timestamp": "2026-08-01T04:00:00.000Z",
+        "account": "Cash",
+        "type": "CREDIT",
+        "amount": "900.00",
+        "reference": "PURCHASE_ORDER #1",
+        "description": "Payment for inventory",
+        "createdBy": "Paolo Garcia"
+      },
+      {
+        "id": "1",
+        "timestamp": "2026-08-01T04:00:00.000Z",
+        "account": "Inventory",
+        "type": "DEBIT",
+        "amount": "900.00",
+        "reference": "PURCHASE_ORDER #1",
+        "description": "Inventory purchased",
+        "createdBy": "Paolo Garcia"
+      }
+    ]
+  }
+}

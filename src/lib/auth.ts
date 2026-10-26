@@ -66,7 +66,6 @@ export async function requirePageAccess(module: Module, write = false) {
     if (user.role !== "GUEST") await (await import("@/server/audit")).recordSecurityEvent(user, { action: "ACCESS_DENIED", entity: "ACCESS", outcome: "DENIED", after: { module, operation: "READ" } });
     redirect("/dashboard");
   }
-  // Guests may open creation pages to preview forms; API write authorization stays unchanged.
-  if (write && user.role !== "GUEST" && !canWrite(user.role, module)) redirect(module === "sales" ? "/sales" : module === "purchasing" ? "/purchasing" : "/dashboard");
+  if (write && !canWrite(user.role, module)) redirect(module === "sales" ? "/sales" : module === "purchasing" ? "/purchasing" : "/dashboard");
   return user;
 }

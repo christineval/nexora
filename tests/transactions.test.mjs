@@ -10,7 +10,7 @@ function pendingHarness(stock = 10, failOrder = false) {
   const customers = [];
   const audit = [];
   const model = {
-    async findUnique() { return { id: 1n }; },
+    async findUnique() { return { id: 1n, purchase_items: [{ product_id: 1n, unit_price: new Prisma.Decimal("0.07") }] }; },
     async create({ data }) { if (failOrder) throw new Error("Order write failed"); writes.push(data); return { id: 1n }; },
     async updateMany({ data }) { writes.push(data); return { count: 1 }; },
   };
@@ -33,6 +33,7 @@ function pendingHarness(stock = 10, failOrder = false) {
       async createMany({ data }) { writes.push(data); },
     },
   };
+  tx.purchase_items = tx.order_items;
   const prisma = { async $transaction(operation, options) {
     assert.equal(options.isolationLevel, "Serializable");
     const beforeAudit = audit.length;
@@ -122,16 +123,30 @@ test("pending purchases can exceed current stock", async () => {
   assert.equal(writes[0].total_amount.toFixed(2), "0.15");
 });
 
-test("invoice prices remain reference-only and purchases use stored product costs", async () => {
+test("purchase lines save actual supplier costs while sales ignore supplied prices", async () => {
   const { writes, input, service } = pendingHarness();
   input.items[0].unitPrice = "999.99";
   await service.createTransaction("purchasing", input, actor);
-  assert.equal(writes[0].purchase_items.create[0].unit_price.toFixed(2), "0.05");
-  assert.equal(writes[0].total_amount.toFixed(2), "0.15");
+  assert.equal(writes[0].purchase_items.create[0].unit_price.toFixed(2), "999.99");
+  assert.equal(writes[0].total_amount.toFixed(2), "2999.97");
+  const sale = pendingHarness();
+  sale.input.items[0].unitPrice = "999.99";
+  await sale.service.createTransaction("sales", sale.input, actor);
+  assert.equal(sale.writes[0].total_amount.toFixed(2), "0.30");
 });
 
-function harness({ kind = "sales", stock = 10, failLedger = false, failMovement = false, failGuard = false, failAudit = false } = {}) {
-  const state = { status: kind === "sales" ? "CONFIRMED" : "ORDERED", stock, movements: [], ledger: [], audit: [] };
+test("pending purchase edits preserve the saved line price even when the catalog cost differs", async () => {
+  const { writes, input, service } = pendingHarness();
+  await service.editTransaction("purchasing", "1", input, actor);
+  assert.equal(writes[0].total_amount.toFixed(2), "0.21");
+  assert.equal(writes[2][0].unit_price.toFixed(2), "0.07");
+  input.items[0].unitPrice = "0.09";
+  await service.editTransaction("purchasing", "1", input, actor);
+  assert.equal(writes[3].total_amount.toFixed(2), "0.27");
+});
+
+function harness({ kind = "sales", stock = 10, failLedger = false, failCostLedger = false, failMovement = false, failGuard = false, failAudit = false } = {}) {
+  const state = { status: kind === "sales" ? "CONFIRMED" : "ORDERED", stock, value: new Prisma.Decimal(stock).mul("0.05"), cost: new Prisma.Decimal("0.05"), movements: [], ledger: [], audit: [] };
   const item = { product_id: 1n, quantity: 3, unit_price: new Prisma.Decimal("0.10"), line_total: new Prisma.Decimal("0.30") };
   const model = {
     async findUnique() { return { id: 1n, status: state.status, total_amount: new Prisma.Decimal("0.30"), ...(kind === "sales" ? { subtotal: new Prisma.Decimal("0.30"), tax: new Prisma.Decimal(0), order_items: [item] } : { purchase_items: [item] }) }; },
@@ -140,15 +155,15 @@ function harness({ kind = "sales", stock = 10, failLedger = false, failMovement 
   const tx = { orders: model, purchase_orders: model,
     audit_logs: { async create({ data }) { if (failAudit) throw new Error("Audit write failed"); state.audit.push(data); } },
     products: {
-      async updateMany({ where, data }) { if (where.stock_qty.gte !== undefined && state.stock < where.stock_qty.gte) return { count: 0 }; state.stock += data.stock_qty.increment ?? -data.stock_qty.decrement; return { count: 1 }; },
-      async findUnique() { return { name: "Test product", stock_qty: state.stock }; },
+      async updateMany({ where, data }) { if (where.stock_qty.gte !== undefined && state.stock < where.stock_qty.gte) return { count: 0 }; state.stock += data.stock_qty.increment ?? -data.stock_qty.decrement; state.value = data.inventory_value; state.cost = data.unit_cost; return { count: 1 }; },
+      async findUnique() { return { name: "Test product", status: "ACTIVE", stock_qty: state.stock, unit_cost: state.cost, inventory_value: state.value }; },
     },
     inventory_movements: { async create({ data }) { if (failMovement) throw new Error("Movement write failed"); state.movements.push(data); } },
-    ledger_entries: { async createMany({ data }) { if (failLedger) throw new Error("Ledger write failed"); state.ledger.push(...data); } },
+    ledger_entries: { async createMany({ data }) { if (failLedger || (failCostLedger && data[0].account_name === "Cost of Goods Sold")) throw new Error("Ledger write failed"); state.ledger.push(...data); } },
   };
   const prisma = { async $transaction(operation, options) {
     assert.equal(options.isolationLevel, "Serializable");
-    const snapshot = structuredClone(state);
+    const snapshot = { ...state, movements: [...state.movements], ledger: [...state.ledger], audit: [...state.audit] };
     try { return await operation(tx); }
     catch (error) { Object.assign(state, snapshot); throw error; }
   } };
@@ -159,11 +174,13 @@ test("completing a sale updates header, positive audit magnitude and balanced ca
   await service.transitionTransaction("sales", "1", "complete", actor);
   assert.equal(state.status, "COMPLETED"); assert.equal(state.stock, 7);
   assert.equal(state.movements[0].quantity, 3); assert.equal(state.movements[0].type, "SALE");
-  assert.deepEqual(state.ledger.map(row => row.account_name), ["Cash", "Sales Revenue"]);
+  assert.deepEqual(state.ledger.map(row => row.account_name), ["Cash", "Sales Revenue", "Cost of Goods Sold", "Inventory"]);
   assert.equal(state.ledger[0].amount.toFixed(2), "0.30");
   assert.equal(state.ledger[0].amount.equals(state.ledger[1].amount), true);
   await assert.rejects(service.transitionTransaction("sales", "1", "complete", actor));
-  assert.equal(state.stock, 7); assert.equal(state.ledger.length, 2);
+  assert.equal(state.stock, 7); assert.equal(state.ledger.length, 4);
+  assert.equal(state.ledger[2].amount.toFixed(2), "0.15");
+  assert.equal(state.value.toFixed(2), "0.35");
   assert.deepEqual(state.audit.map(row => row.action), ["LEDGER_POSTED", "ORDER_COMPLETED"]);
   assert.equal(state.audit[1].actor_id, actor.id);
 });
@@ -176,8 +193,8 @@ test("receiving a purchase increases inventory and posts balanced supplier credi
   assert.equal(state.stock, 13);
 });
 test("insufficient stock and failures in audit or finance roll back every dependent write", async () => {
-  for (const config of [{ stock: 2 }, { failMovement: true }, { failLedger: true }, { failGuard: true }, { failAudit: true }]) {
-    const { state, service } = harness(config); const before = structuredClone(state);
+  for (const config of [{ stock: 2 }, { failMovement: true }, { failLedger: true }, { failCostLedger: true }, { failGuard: true }, { failAudit: true }]) {
+    const { state, service } = harness(config); const before = { ...state, movements: [], ledger: [], audit: [] };
     await assert.rejects(service.transitionTransaction("sales", "1", "complete", actor));
     assert.deepEqual(state, before);
   }

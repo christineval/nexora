@@ -1,8 +1,9 @@
 import "server-only";
 import type { CurrentUser } from "@/lib/auth";
 import { createGuestData } from "@/server/demo/guest-data";
+import { BusinessError } from "@/lib/errors";
 
-// Select the data source from the authenticated server identity, never request input.
+// Guests read only the bundled erp_lite snapshot, never a runtime database.
 export async function listProducts(user: CurrentUser) {
   if (user.role === "GUEST") return createGuestData().products;
   return (await import("@/services/inventory.service")).listProducts();
@@ -32,7 +33,7 @@ export async function listLedgerEntries(user: CurrentUser) {
   return (await import("@/services/finance.service")).listLedgerEntries();
 }
 export async function listUsers(user: CurrentUser) {
-  if (user.role === "GUEST") return createGuestData().users;
+  if (user.role !== "ADMIN") throw new BusinessError("Only administrators can view users.", 403);
   return (await import("@/services/user.service")).listUsers();
 }
 export async function getDashboardMetrics(user: CurrentUser, { includeRecentOrders = false } = {}) {

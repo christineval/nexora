@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { loadTs } from "./load-ts.mjs";
 
 test("product edits persist and clear arbitrary supplier codes, preserve SKU and stock, and record code changes in audit history", async () => {
-  let row = { id: 1n, sku: "ERP-0001", supplier_product_code: null, stock_qty: 7, status: "ACTIVE" };
+  let row = { id: 1n, sku: "ERP-0001", supplier_product_code: null, stock_qty: 7, unit_cost: "3.00", status: "ACTIVE" };
   const audits = [];
   const tx = {
     products: {

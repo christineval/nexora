@@ -1,6 +1,7 @@
 export interface ProductRow {
   productId: string; sku: string; supplierProductCode?: string | null; name: string; size: string | null;
   stockQty: number; unitCost: number; sellingPrice: number; status: string;
+  inventoryValue?: string;
 }
 export interface InventoryMovementRow {
   id: string;

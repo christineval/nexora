@@ -17,6 +17,7 @@
     "test:database": "node tests/database-workflows.mjs",
     "test:ui": "playwright test",
     "test:guest": "playwright test --config playwright.guest.config.mjs",
+    "test:security": "playwright test --config playwright.security.config.mjs",
     "auth:configure": "node scripts/configure-auth.mjs",
     "admin:create": "ts-node --project tsconfig.scripts.json scripts/create-admin.ts",
     "prisma:generate": "prisma generate",
@@ -24,6 +25,7 @@
     "db:introspect": "prisma db pull",
     "db:studio": "prisma studio",
     "db:backup": "node scripts/backup-database.mjs",
+    "guest:export": "node scripts/export-guest-snapshot.mjs",
     "db:seed": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed.ts"
   },
   "dependencies": {
@@ -42,7 +44,7 @@
     "recharts": "^3.9.2",
     "server-only": "^0.0.1",
     "tesseract.js": "^7.0.0",
-    "zod": "^4.6.5"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",

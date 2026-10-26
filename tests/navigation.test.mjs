@@ -46,8 +46,8 @@ test("mobile menu starts collapsed and its button identifies the native dialog",
 });
 
 test("desktop and drawer navigation preserve the same destinations and active item", () => {
-  const desktop = renderToStaticMarkup(createElement(Sidebar));
-  const mobile = renderToStaticMarkup(createElement(Sidebar, { mobile: true }));
+  const desktop = renderToStaticMarkup(createElement(Sidebar, { role: "ADMIN" }));
+  const mobile = renderToStaticMarkup(createElement(Sidebar, { mobile: true, role: "ADMIN" }));
   const destinations = (html) => [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
   assert.deepEqual(destinations(mobile), destinations(desktop));
   const productLink = mobile.match(/<a\b[^>]*>/g).find((link) => link.includes('href="/inventory/products"'));

@@ -8,7 +8,7 @@ try {
   await prisma.$transaction(async tx => {
     const actor = await tx.users.findFirst({ where: { role: "ADMIN" }, select: { id: true, name: true, role: true } });
     assert.ok(actor, "An existing administrator is required for audit references.");
-    const product = await tx.products.create({ data: { sku: "TEST-" + randomUUID(), name: "Rollback test product", selling_price: "0.10", unit_cost: "0.05", stock_qty: 10 } });
+    const product = await tx.products.create({ data: { sku: "TEST-" + randomUUID(), name: "Rollback test product", selling_price: "0.10", unit_cost: "0.05", stock_qty: 10, inventory_value: "0.50" } });
     const customer = await tx.customers.create({ data: { name: "Rollback test customer" } });
     const supplier = await tx.suppliers.create({ data: { name: "Rollback test supplier" } });
     const boundary = { orders: tx.orders, purchase_orders: tx.purchase_orders, async $transaction(operation) {
@@ -55,7 +55,8 @@ try {
     const movement = await tx.inventory_movements.findFirst({ where: { reference_id: BigInt(sale.id), reference_type: "ORDER" } });
     assert.equal(movement.type, "SALE"); assert.equal(movement.quantity, 2);
     const entries = await tx.ledger_entries.findMany({ where: { reference_id: BigInt(sale.id), reference_type: "ORDER" } });
-    assert.equal(entries.length, 2); assert.ok(entries[0].amount.equals(entries[1].amount));
+    assert.equal(entries.length, 4);
+    assert.equal(entries.filter(row => row.entry_type === "DEBIT").reduce((sum, row) => sum.add(row.amount), new Prisma.Decimal(0)).equals(entries.filter(row => row.entry_type === "CREDIT").reduce((sum, row) => sum.add(row.amount), new Prisma.Decimal(0))), true);
     await assert.rejects(service.transitionTransaction("sales", sale.id, "complete", actor));
     await service.transitionTransaction("sales", failed.id, "confirm", actor);
     await assert.rejects(service.transitionTransaction("sales", failed.id, "complete", actor));
@@ -67,6 +68,15 @@ try {
     await service.transitionTransaction("purchasing", purchase.id, "complete", actor);
     assert.equal((await tx.products.findUnique({ where: { id: product.id } })).stock_qty, 11);
     await assert.rejects(service.transitionTransaction("purchasing", purchase.id, "complete", actor));
+    const payments = loadTs("src/services/purchase-payment.service.ts", { "@/lib/prisma": { prisma: boundary } });
+    const payment = { paymentKey: randomUUID(), amount: "0.05", date: "2026-10-26", reference: "Rollback test cash voucher" };
+    const firstPayment = await payments.recordPurchasePayment(purchase.id, payment, actor);
+    assert.equal((await payments.recordPurchasePayment(purchase.id, payment, actor)).id, firstPayment.id);
+    await assert.rejects(payments.recordPurchasePayment(purchase.id, { ...payment, paymentKey: randomUUID(), amount: "0.11" }, actor), /exceeds/);
+    const balanceAfterPayment = (await service.listTransactions("purchasing", actor)).find(row => row.id === purchase.id);
+    assert.equal(balanceAfterPayment.payments.length, 1);
+    assert.equal(balanceAfterPayment.payments[0].amount, "0.05");
+    assert.equal(await tx.ledger_entries.count({ where: { reference_type: "PURCHASE_PAYMENT", reference_id: BigInt(firstPayment.id) } }), 2);
     const adjust = loadTs("src/services/adjustment.service.ts", { "@/lib/prisma": { prisma: boundary } });
     await adjust.adjustStock({ productId: product.id.toString(), type: "ADJUSTMENT_OUT", quantity: 1 }, actor.id);
     await assert.rejects(adjust.adjustStock({ productId: product.id.toString(), type: "ADJUSTMENT_OUT", quantity: 100 }, actor.id));

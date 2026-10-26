@@ -17,7 +17,7 @@ function harness() {
     "next/navigation": { redirect(path) { throw new Error(path); } },
     "@/server/data/erp-data": new Proxy({}, { get() { return () => assert.fail("Unauthorized object lookup"); } }),
   };
-  for (const name of ["@/lib/prisma", ...["inventory", "contact", "transaction", "purchase-invoice", "product-lifecycle", "user", "adjustment"].map(name => `@/services/${name}.service`)]) {
+  for (const name of ["@/lib/prisma", ...["inventory", "contact", "transaction", "purchase-invoice", "purchase-payment", "product-lifecycle", "user", "adjustment"].map(name => `@/services/${name}.service`)]) {
     Object.defineProperty(mocks, name, { get() { assert.fail(`Unauthorized request reached protected data: ${name}`); } });
   }
   return { mocks, setIdentity(user) { identity = user; } };
@@ -46,6 +46,16 @@ test("every protected mutation rejects anonymous users, wrong roles and guest wr
         assert.equal(response.status, role ? 403 : 401, `${role} PATCH ${path}/${id}`);
       }
     }
+  }
+});
+
+test("purchase payment route rejects anonymous, guest and wrong-role requests before loading payment or database services", async () => {
+  const { mocks, setIdentity } = harness();
+  for (const role of [null, "SALES", "FINANCE", "GUEST", "unknown"]) {
+    setIdentity(role ? { id: 999n, name: "Actor", role } : null);
+    const route = loadTs("src/app/api/purchases/[id]/payments/route.ts", mocks);
+    const response = await route.POST(request("purchases/1/payments", "POST"), { params: Promise.resolve({ id: "1" }) });
+    assert.equal(response.status, role ? 403 : 401);
   }
 });
 

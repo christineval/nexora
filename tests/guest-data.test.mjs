@@ -5,7 +5,9 @@ import { loadTs } from "./load-ts.mjs";
 
 const { createGuestData } = loadTs("src/server/demo/guest-data.ts");
 const { sumMoney, toMinorUnits } = loadTs("src/lib/money.ts");
-const { stockDelta } = loadTs("src/lib/stock.ts");
+const snapshot = JSON.parse(readFileSync(new URL("../src/server/demo/guest-snapshot.json", import.meta.url), "utf8"));
+const missingId = "9223372036854775807";
+const plain = value => JSON.parse(JSON.stringify(value));
 
 function isolatedMocks() {
   const mocks = { "@/lib/rate-limit": { async limitRequest() {}, RateLimitError: class extends Error {} } };
@@ -30,10 +32,12 @@ async function guestHarness(t) {
   return { mocks, guest: await auth.getCurrentUser(), auth };
 }
 
-test("guest mock data is internally consistent across transactions, stock, finance, and dashboard", () => {
-  const data = createGuestData(new Date("2026-10-12T04:00:00Z"));
-  const again = createGuestData(new Date("2026-10-12T04:00:00Z"));
+test("guests preserve the exported erp_lite records and derive dashboard totals without fabricating history", () => {
+  const data = createGuestData();
+  const again = createGuestData();
   assert.equal(JSON.stringify(data), JSON.stringify(again));
+  assert.equal(snapshot.source, "erp_lite");
+  for (const [name, rows] of Object.entries(snapshot.data)) assert.deepEqual(plain(data[name]), rows);
   const ids = data.products.map(row => row.productId);
   for (const [kind, rows] of [["sales", data.sales], ["purchases", data.purchases]]) {
     const parties = kind === "sales" ? data.customers : data.suppliers;
@@ -46,16 +50,11 @@ test("guest mock data is internally consistent across transactions, stock, finan
       }
     }
   }
-  for (const product of data.products) {
-    const stock = data.movements.filter(row => row.productId === product.productId).reduce((sum, row) => sum + stockDelta(row.type, row.quantity), 0);
-    assert.equal(product.stockQty, stock);
-    assert.ok(stock >= 0);
-  }
-  assert.equal(sumMoney(data.ledger.filter(row => row.type === "DEBIT").map(row => row.amount)), sumMoney(data.ledger.filter(row => row.type === "CREDIT").map(row => row.amount)));
+  for (const product of data.products) assert.ok(product.stockQty >= 0);
   assert.equal(data.dashboard.totalSales, Number(sumMoney(data.sales.filter(row => row.status === "COMPLETED").map(row => row.total))));
   assert.equal(data.dashboard.totalPurchases, Number(sumMoney(data.purchases.filter(row => row.status === "RECEIVED").map(row => row.total))));
   assert.equal(data.dashboard.recentOrders.length, 4);
-  assert.ok(data.users.every(row => row.email.endsWith("@nexora-demo.example") && !Object.keys(row).includes("password_hash")));
+  assert.equal(Object.hasOwn(data, "users"), false);
   data.products[0].name = "Changed";
   assert.notEqual(createGuestData().products[0].name, "Changed");
 });
@@ -63,15 +62,16 @@ test("guest mock data is internally consistent across transactions, stock, finan
 test("all guest data selectors avoid loading Prisma or database services, including unknown IDs", async t => {
   const { mocks, guest } = await guestHarness(t);
   const data = loadTs("src/server/data/erp-data.ts", mocks);
-  assert.ok((await data.listProducts(guest))[0].sku.startsWith("DEMO-"));
-  assert.equal((await data.getProduct(guest, "920001")).name, "Demo Notebook");
-  assert.equal(await data.getProduct(guest, "1"), null);
+  assert.deepEqual(plain(await data.listProducts(guest)), snapshot.data.products);
+  assert.equal((await data.getProduct(guest, snapshot.data.products[0].productId)).name, snapshot.data.products[0].name);
+  assert.equal(await data.getProduct(guest, missingId), null);
+  assert.equal(await data.getProduct(guest, "920001"), null);
   assert.equal(await data.getNextProductSku(guest), "");
   assert.ok((await data.listInventoryMovements(guest)).length);
-  for (const kind of ["customers", "suppliers"]) assert.ok((await data.listContacts(guest, kind))[0].name.startsWith("Demo "));
-  for (const kind of ["sales", "purchasing"]) assert.ok((await data.listTransactions(guest, kind))[0].party.startsWith("Demo "));
+  for (const kind of ["customers", "suppliers"]) assert.deepEqual(plain(await data.listContacts(guest, kind)), snapshot.data[kind]);
+  for (const kind of ["sales", "purchasing"]) assert.deepEqual(plain(await data.listTransactions(guest, kind)), snapshot.data[kind === "sales" ? "sales" : "purchases"]);
   assert.ok((await data.listLedgerEntries(guest)).length);
-  assert.equal((await data.listUsers(guest)).length, 4);
+  await assert.rejects(data.listUsers(guest), error => error.status === 403);
   assert.equal((await data.getDashboardMetrics(guest)).recentOrders.length, 0);
   assert.equal((await data.getDashboardMetrics(guest, { includeRecentOrders: true })).recentOrders.length, 4);
 });
@@ -94,20 +94,23 @@ test("member selectors still delegate to the existing live services", async () =
 
 test("guest read APIs return demo records, reject unknown detail IDs, and block every mutation before database imports", async t => {
   const { mocks } = await guestHarness(t);
-  for (const route of ["products", "customers", "suppliers", "orders", "purchases", "users"]) {
+  for (const route of ["products", "customers", "suppliers", "orders", "purchases"]) {
     const api = loadTs(`src/app/api/${route}/route.ts`, mocks);
     const response = await api.GET(new Request(`http://localhost:3000/api/${route}`));
     assert.equal(response.status, 200);
     const rows = await response.json();
     assert.ok(rows.length > 0);
-    assert.ok(JSON.stringify(rows).includes("Demo "));
+    assert.deepEqual(rows, snapshot.data[route === "orders" ? "sales" : route]);
     const denied = await api.POST(new Request(`http://localhost:3000/api/${route}`, { method: "POST", headers: { Origin: "http://localhost:3000" }, body: "{}" }));
     assert.equal(denied.status, 403);
   }
-  for (const [route, id] of [["products", "920001"], ["customers", "930001"], ["suppliers", "940001"]]) {
+  const users = loadTs("src/app/api/users/route.ts", mocks);
+  assert.equal((await users.GET(new Request("http://localhost:3000/api/users"))).status, 403);
+  assert.equal((await users.POST(new Request("http://localhost:3000/api/users", { method: "POST", headers: { Origin: "http://localhost:3000" }, body: "{}" }))).status, 403);
+  for (const [route, id] of [["products", snapshot.data.products[0].productId], ["customers", snapshot.data.customers[0].id], ["suppliers", snapshot.data.suppliers[0].id]]) {
     const api = loadTs(`src/app/api/${route}/[id]/route.ts`, mocks);
     assert.equal((await api.GET(new Request(`http://localhost:3000/api/${route}`), { params: Promise.resolve({ id }) })).status, 200);
-    assert.equal((await api.GET(new Request(`http://localhost:3000/api/${route}`), { params: Promise.resolve({ id: "1" }) })).status, 404);
+    assert.equal((await api.GET(new Request(`http://localhost:3000/api/${route}`), { params: Promise.resolve({ id: missingId }) })).status, 404);
   }
   for (const route of ["products", "customers", "suppliers", "orders", "purchases", "users"]) {
     const api = loadTs(`src/app/api/${route}/[id]/route.ts`, mocks);
@@ -121,17 +124,17 @@ test("guest read APIs return demo records, reject unknown detail IDs, and block 
 
 test("guest pages and histories render without database imports and never fall back to live IDs", async t => {
   const { mocks } = await guestHarness(t);
-  const routes = ["dashboard", "customers", "suppliers", "sales", "purchasing", "inventory/products", "inventory/movements", "finance/ledger", "reports/sales", "reports/purchases", "reports/inventory", "settings", "settings/users", "customers/[id]", "suppliers/[id]", "sales/[id]", "purchasing/[id]", "inventory/products/[id]", "sales/new", "purchasing/new"];
+  const routes = ["dashboard", "customers", "suppliers", "sales", "purchasing", "inventory/products", "inventory/movements", "finance/ledger", "reports/sales", "reports/purchases", "reports/inventory", "customers/[id]", "suppliers/[id]", "sales/[id]", "purchasing/[id]", "inventory/products/[id]"];
   mocks["next/link"] = { __esModule: true, default: () => null };
   for (const route of routes) {
     const source = readFileSync(`src/app/(erp)/${route}/page.tsx`, "utf8");
     for (const match of source.matchAll(/from "(@\/components\/[^"]+)"/g)) mocks[match[1]] = { __esModule: true, default: () => null };
   }
-  const ids = { "customers/[id]": "930001", "suppliers/[id]": "940001", "sales/[id]": "900001", "purchasing/[id]": "910001", "inventory/products/[id]": "920001" };
+  const ids = { "customers/[id]": snapshot.data.customers[0].id, "suppliers/[id]": snapshot.data.suppliers[0].id, "sales/[id]": snapshot.data.sales[0].id, "purchasing/[id]": snapshot.data.purchases[0].id, "inventory/products/[id]": snapshot.data.products[0].productId };
   for (const route of routes) {
     const { default: Page } = loadTs(`src/app/(erp)/${route}/page.tsx`, mocks);
     const props = { searchParams: Promise.resolve({}), params: Promise.resolve({ id: ids[route] ?? "1" }) };
     assert.ok(await Page(props));
-    if (route.endsWith("/[id]")) await assert.rejects(Page({ ...props, params: Promise.resolve({ id: "1" }) }), /not-found/);
+    if (route.endsWith("/[id]")) await assert.rejects(Page({ ...props, params: Promise.resolve({ id: missingId }) }), /not-found/);
   }
 });

@@ -27,7 +27,7 @@ export default function ProductTable({ rows, initialQuery = "", canEdit = true, 
   const mutation = useMutation();
   const { notify } = useNotifications();
   const [view, setView] = useState<"active" | "archived">("active");
-  const canPreview = canEdit || isGuest;
+  const canPreview = canEdit && !isGuest;
   const [query, setQuery] = useState(initialQuery);
   const [status, setStatus] = useState("");
   const [stock, setStock] = useState<StockFilter>("all");
@@ -42,7 +42,6 @@ export default function ProductTable({ rows, initialQuery = "", canEdit = true, 
   const title = panel?.kind === "archive" ? "Archive product" : panel?.kind === "restore" ? "Restore product" : panel?.kind === "delete" ? "Permanently delete product" : panel?.kind === "edit" ? "Edit product" : panel?.kind === "actions" ? "Product actions" : "Product details";
   const product = panel?.product ?? null;
   const columns: GridColDef<ProductRow>[] = [
-    { field: "rowNumber", headerName: "#", width: 55, sortable: false, filterable: false, disableColumnMenu: true, renderCell: (params) => page.start + params.api.getRowIndexRelativeToVisibleRows(params.id) },
     { field: "sku", headerName: "SKU", width: 100 },
     { field: "supplierProductCode", headerName: "Supplier Product Code", width: 180, valueFormatter: (value) => value || "-" },
     { field: "name", headerName: "Product Name", flex: 1, minWidth: 120 },

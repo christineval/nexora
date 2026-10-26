@@ -57,12 +57,13 @@ test("guest sessions are signed, expire, and cannot authorize any business write
   const token = jar.get("nexora_session");
   const guest = await auth.getCurrentUser();
   assert.equal(guest.name, "Guest"); assert.equal(guest.role, "GUEST");
-  for (const feature of ["sales", "customers", "inventory", "purchasing", "suppliers", "finance", "reports", "settings"]) {
+  for (const feature of ["sales", "customers", "inventory", "purchasing", "suppliers", "finance", "reports"]) {
     assert.equal((await auth.requireUser(feature)).role, "GUEST");
     await assert.rejects(auth.requireUser(feature, true), error => error.status === 403);
   }
-  assert.equal((await auth.requirePageAccess("sales", true)).role, "GUEST");
-  assert.equal((await auth.requirePageAccess("purchasing", true)).role, "GUEST");
+  for (const feature of ["settings", "audit"]) await assert.rejects(auth.requireUser(feature), error => error.status === 403);
+  await assert.rejects(auth.requirePageAccess("sales", true), /\/sales/);
+  await assert.rejects(auth.requirePageAccess("purchasing", true), /\/purchasing/);
   assert.equal(databaseReads, 0);
   jar.set("nexora_session", token + "tampered"); assert.equal(await auth.getCurrentUser(), null);
   jar.set("nexora_session", token);

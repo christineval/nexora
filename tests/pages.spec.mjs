@@ -600,6 +600,8 @@ test("shared search, pagination, date filters and report empty states work", asy
   await page.goto("/reports/sales");
   await expect(page.getByRole("gridcell").first()).toBeVisible();
   await page.getByLabel("From (PH time)").fill("2099-01-01");
+  await expect(page.getByLabel("From (PH time)")).not.toHaveValue("2099-01-01");
+  await page.getByLabel("To (PH time)").fill("1900-01-01");
   await expect(page.getByText("No transactions in this period.")).toBeVisible();
   await page.screenshot({ path: "test-results/sales-report.png", fullPage: true });
 });
@@ -673,13 +675,13 @@ test("login page displays safe sign-in errors", async ({ page, context }) => {
 });
 
 
-test("guest entry browses all modules, blocks writes, and offers header controls", async ({ page, context }) => {
+test("guest entry browses business demos, denies administration and writes, and offers header controls", async ({ page, context }) => {
   test.setTimeout(120000);
   await context.clearCookies();
   await page.goto("/login");
   await page.getByRole("button", { name: "View as guest", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByText("Viewing as Guest. All modules are read-only and show mock data. No live business records are displayed. Try the forms and invoice OCR; saving, updating and confirmations are disabled.")).toBeVisible();
+  await expect(page.getByText(/Viewing as Guest\. Read-only snapshot of erp_lite demo data/)).toBeVisible();
   for (const path of ["/sales", "/customers", "/inventory/products", "/inventory/movements", "/purchasing", "/suppliers", "/finance/ledger", "/reports/sales", "/reports/purchases", "/reports/inventory", "/settings/users", "/settings"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -689,11 +691,10 @@ test("guest entry browses all modules, blocks writes, and offers header controls
     const response = await context.request[method](path, { headers: { Origin: "http://localhost:3000" }, data: {} });
     expect(response.status(), path).toBe(403);
   }
-  for (const path of ["/sales/new", "/purchasing/new"]) {
+  for (const [path, destination] of [["/settings", "/dashboard"], ["/settings/users", "/dashboard"], ["/settings/audit", "/dashboard"], ["/sales/new", "/sales"], ["/purchasing/new", "/purchasing"]]) {
     await page.goto(path);
-    await expect(page).toHaveURL(new RegExp(path + "$"));
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByRole("dialog").getByRole("button", { name: /^Create pending/ })).toBeDisabled();
+    await expect(page).toHaveURL(new RegExp(destination + "$"));
+    await expect(page.getByRole("dialog")).not.toBeVisible();
   }
   await page.goto("/customers");
   await page.getByRole("button", { name: /^Details for / }).first().click();
@@ -701,7 +702,7 @@ test("guest entry browses all modules, blocks writes, and offers header controls
   const historyLink = page.getByRole("link", { name: /^View sales history/ });
   await page.goto(await historyLink.getAttribute("href"));
   await expect(page.getByRole("heading", { name: "Sales history", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Edit / }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
   await page.goto("/sales");
   await page.getByRole("button", { name: /^View order / }).first().click();
   await expect(page.getByRole("dialog", { name: "Order details", exact: true })).toBeVisible();

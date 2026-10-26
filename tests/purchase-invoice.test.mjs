@@ -8,7 +8,7 @@ const newProduct = { name: "New ink", supplierProductCode: "SUP-INK/001", unitCo
 const input = { importKey: "281deca6-cb7d-4ed5-ae13-f43cc7765672", partyId: "1", date: "2026-10-24", items: [{ productId: "1", quantity: 3 }, { newProduct, quantity: 2 }] };
 
 function harness(options = {}) {
-  const products = [{ id: 1n, sku: "ERP-0000", name: "Existing", status: "ACTIVE", stock_qty: options.overflow ? 2147483647 : 8, unit_cost: new Prisma.Decimal("0.05"), selling_price: new Prisma.Decimal("0.20") }];
+  const products = [{ id: 1n, sku: "ERP-0000", name: "Existing", status: "ACTIVE", stock_qty: options.overflow ? 2147483647 : 8, inventory_value: new Prisma.Decimal(options.overflow ? 2147483647 : 8).mul("0.05"), unit_cost: new Prisma.Decimal("0.05"), selling_price: new Prisma.Decimal("0.20") }];
   const purchases = [], movements = [], ledger = [], audit = [];
   const calls = { transactions: 0, skuBatches: 0, productBatches: 0, auditBatches: 0, movementBatches: 0 };
   let sequence = 0;
@@ -33,6 +33,8 @@ function harness(options = {}) {
         if (!product || product.status !== where.status || product.stock_qty > where.stock_qty.lte) return { count: 0 };
         if (options.failLaterStock && product.id !== 1n) throw new Error("Stock update failed");
         product.stock_qty += data.stock_qty.increment;
+        product.inventory_value = data.inventory_value;
+        product.unit_cost = data.unit_cost;
         return { count: 1 };
       },
       async findUnique({ where }) { return products.find(product => product.id === where.id) ?? null; },
@@ -87,6 +89,16 @@ test("invoice import creates a received purchase, adds existing/new stock, and p
   assert.equal(state.calls.productBatches, 1);
   await assert.rejects(state.transactions.transitionTransaction("purchasing", result.id, "complete", actor));
   assert.equal(state.products[0].stock_qty, 11);
+});
+
+test("invoice import uses the reviewed cost for an existing product without changing its selling price", async () => {
+  const state = harness();
+  await state.service.importPurchaseInvoice({ ...input, items: [{ productId: "1", quantity: 3, unitPrice: "0.15" }, { newProduct, quantity: 2 }] }, actor);
+  assert.equal(state.purchases[0].purchase_items.create[0].unit_price.toFixed(2), "0.15");
+  assert.equal(state.purchases[0].total_amount.toFixed(2), "0.65");
+  assert.equal(state.products[0].inventory_value.toFixed(2), "0.85");
+  assert.equal(state.products[0].unit_cost.toFixed(2), "0.08");
+  assert.equal(state.products[0].selling_price.toFixed(2), "0.20");
 });
 
 test("retrying the same import returns its existing purchase without applying stock/finance or creating products again", async () => {

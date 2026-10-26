@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { contactSchema, idSchema, transactionSchema } from "./shared";
+import { calendarDateSchema, contactSchema, idSchema, transactionSchema } from "./shared";
 import { philippineDate } from "@/lib/feature-list";
 
 export const orderSchema = transactionSchema.omit({ partyId: true }).extend({
-  date: transactionSchema.shape.date.refine(value => value <= philippineDate(new Date().toISOString()), "Sales order date cannot be in the future."),
+  date: calendarDateSchema.refine(value => value <= philippineDate(new Date().toISOString()), "Sales order date cannot be in the future."),
   partyId: idSchema.optional(),
   walkInCustomer: z.object({ name: contactSchema.shape.name }).optional(),
 }).superRefine((data, context) => {

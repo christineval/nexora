@@ -11,6 +11,7 @@ export default defineConfig({
     url: "http://localhost:3301/login", reuseExistingServer: false, timeout: 60000,
     env: {
       DATABASE_URL: "postgresql://unavailable:unavailable@127.0.0.1:9/no_guest_database?connect_timeout=1",
+      GUEST_DATABASE_URL: "postgresql://unavailable:unavailable@127.0.0.1:9/erp_lite?connect_timeout=1",
       SESSION_SECRET: "guest-offline-test-signing-secret-at-least-32-characters",
     },
   },

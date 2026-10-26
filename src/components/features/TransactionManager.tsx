@@ -1,7 +1,8 @@
 "use client";
 import { useGuestPreview } from "@/components/ui/GuestPreviewProvider";
 import { useState } from "react";
-import { Eye, MoreVertical, Plus } from "lucide-react";
+import { Eye, Info, MoreVertical, Plus } from "lucide-react";
+import Tooltip from "@mui/material/Tooltip";
 import FeatureHeading from "@/components/ui/FeatureHeading";
 import FeatureTable, { type FeatureColumn } from "@/components/ui/FeatureTable";
 import Modal from "@/components/ui/Modal";
@@ -11,13 +12,15 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import TransactionDetails from "./TransactionDetails";
 import TransactionForm from "./TransactionForm";
 import PurchaseImport from "./PurchaseImport";
+import PurchasePaymentForm from "./PurchasePaymentForm";
 import { iconButton, primaryButton, secondaryButton } from "@/components/ui/feature-styles";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { sumMoney, toMinorUnits } from "@/lib/money";
 import type { ContactRow, TransactionRow } from "@/types/features";
 import type { ProductRow } from "@/types/views";
 export default function TransactionManager({ kind, rows, parties, products, initialId, initialCreate = false, canEdit = true }: { kind: "sales" | "purchasing"; rows: TransactionRow[]; parties: ContactRow[]; products: ProductRow[]; initialId?: string; initialCreate?: boolean; canEdit?: boolean }) {
   const isGuest = useGuestPreview();
-  const canPreview = canEdit || isGuest;
+  const canPreview = canEdit && !isGuest;
   const sales = kind === "sales";
   const title = sales ? "Sales Orders" : "Purchase Orders";
   const endpoint = sales ? "orders" : "purchases";
@@ -36,16 +39,34 @@ export default function TransactionManager({ kind, rows, parties, products, init
     { field: "total", label: "Total Amount", width: 150, value: row => Number(row.total), render: row => formatCurrency(Number(row.total)) },
     { field: "status", label: "Status", width: 125, value: row => row.status, render: row => <StatusBadge value={row.status} /> },
   ];
-  return <section><FeatureHeading title={title} description={sales ? "Manage and track customer orders" : "Manage supplier purchase orders"}>{canPreview && <div className="flex flex-wrap gap-2">{!sales && <PurchaseImport parties={parties} products={products} />}<button type="button" className={primaryButton} onClick={() => setPanel({ kind: "create" })}><Plus className="size-4" />{sales ? "New Order" : "New Purchase Order"}</button></div>}</FeatureHeading>
+  if (!sales) columns.push({ field: "payment", label: "Payment", width: 150, value: row => {
+    if (row.payments === undefined) return "Not tracked";
+    if (row.status !== "RECEIVED") return "Not yet payable";
+    const paid = toMinorUnits(sumMoney((row.payments ?? []).map(payment => payment.amount)));
+    return paid === 0n ? "Unpaid" : paid >= toMinorUnits(row.total) ? "Paid" : "Partially paid";
+  } });
+  return <section><FeatureHeading title={title} description={sales ? "Manage and track customer orders" : "Manage supplier purchase orders"}>{canPreview && <div className="flex flex-wrap items-center gap-2">{!sales && <PurchaseImport parties={parties} products={products} />}<button type="button" className={primaryButton} onClick={() => setPanel({ kind: "create" })}><Plus className="size-4" />{sales ? "New Order" : "New Purchase Order"}</button>{sales && <Tooltip describeChild arrow placement="bottom-end" enterTouchDelay={0} title={
+      <div className="space-y-2 p-1 text-sm leading-relaxed">
+        <p className="font-semibold">Sales order process</p>
+        <ol className="list-decimal space-y-2 pl-4">
+          <li><strong>Pending:</strong> Create an order with a customer and product quantities. You can still edit it; stock has not been deducted.</li>
+          <li><strong>Confirmed:</strong> Open the order actions menu and choose Confirm order. The order is ready to complete; stock is still unchanged.</li>
+          <li><strong>Completed:</strong> Choose Complete sale in the order actions menu, then confirm. Available stock is checked, quantities are deducted, and stock movements, cash / sales revenue entries and the cost of goods sold are recorded together.</li>
+        </ol>
+        <p>You can cancel pending or confirmed orders. Completed and cancelled orders are final.</p>
+      </div>
+    }><button type="button" className={iconButton} aria-label="Sales order process"><Info className="size-4" aria-hidden="true" /></button></Tooltip>}</div>}</FeatureHeading>
     
     <FeatureTable rows={rows} columns={columns} label={title} statusValue={row => row.status} timestamp={row => row.timestamp} searchText={row => [row.id, row.party, ...row.items.map(item => item.name + " " + item.sku)].join(" ")} actions={row => <><button className={iconButton} type="button" aria-label={"View order " + row.id} onClick={() => open("details", row.id)}><Eye className="size-4" /></button>{canPreview && <button className={iconButton} type="button" aria-label={"Actions for order " + row.id} onClick={() => open("actions", row.id)}><MoreVertical className="size-4" /></button>}</>} />
     <Modal key={panel?.kind + (panel?.id ?? "")} open={!!panel} busy={mutation.saving} wide title={panel?.kind === "edit" ? "Edit pending order" : panel?.kind === "create" ? (sales ? "Create Sales Order" : "Create Purchase Order") : (panel?.kind === "actions" ? "Order actions" : "Order details")} onClose={() => { setPanel(null); setAction(""); }}>
       
       {canPreview && (panel?.kind === "create" || panel?.kind === "edit") && <TransactionForm initialRow={panel.kind === "edit" ? row : undefined} kind={kind} parties={parties} products={products} saving={mutation.saving} onSubmit={data => { if (!canEdit || isGuest) return; void mutation.submit("/api/" + endpoint + (panel.kind === "edit" ? "/" + row?.id : ""), panel.kind === "edit" ? "PATCH" : "POST", panel.kind === "edit" ? { ...data, action: "edit" } : data, () => { setPanel(null); notify("Pending order saved successfully."); }); }} />}
       {row && (panel?.kind === "details" || panel?.kind === "actions") && <TransactionDetails row={row} />}
+      {isGuest && !sales && row && row.payments === undefined && <p className="mt-4 text-sm text-slate-500 dark:text-neutral-400">Payment history was not tracked in this snapshot. No paid or unpaid balance can be inferred.</p>}
+      {canPreview && !sales && row?.payments !== undefined && row?.status === "RECEIVED" && panel?.kind === "actions" && toMinorUnits(sumMoney((row.payments ?? []).map(payment => payment.amount))) < toMinorUnits(row.total) && <PurchasePaymentForm key={row.id} row={row} canEdit={canEdit} saving={mutation.saving} onSave={data => { if (!canEdit || isGuest) return; void mutation.submit(`/api/purchases/${row.id}/payments`, "POST", data, () => { setPanel(null); notify("Cash payment recorded. Supplier balance updated."); }); }} />}
       {canPreview && row && panel?.kind === "actions" && <div className="mt-5 space-y-4">
-        {!action && <div className="flex flex-wrap gap-3">{row.status === "PENDING" && <button type="button" className={secondaryButton} onClick={() => setPanel({ kind: "edit", id: row.id })}>Edit pending order</button>}{row.status === "PENDING" && <button type="button" className={primaryButton} onClick={() => setAction("confirm")}>{sales ? "Confirm order" : "Mark as ordered"}</button>}{row.status === (sales ? "CONFIRMED" : "ORDERED") && <button type="button" className={primaryButton} onClick={() => setAction("complete")}>{sales ? "Complete sale" : "Receive purchase"}</button>}{["PENDING", sales ? "CONFIRMED" : "ORDERED"].includes(row.status) && <button type="button" className={secondaryButton} onClick={() => setAction("cancel")}>Cancel order</button>}{["COMPLETED", "RECEIVED", "CANCELLED"].includes(row.status) && <p className="text-sm text-slate-500 dark:text-neutral-400">This order is final. Its audit history is retained.</p>}</div>}
-        {action && <div className="rounded-lg border border-amber-200 p-4 dark:border-amber-900"><p className="mb-4 text-sm">{action === "complete" ? (sales ? "Complete this cash sale? Stock will decrease and balanced cash / revenue entries will be posted." : "Receive this purchase? Stock will increase and balanced inventory / payable entries will be posted.") : action === "cancel" ? "Cancel this order? It will remain in history and cannot be reopened." : "Confirm this order for processing?"}</p><div className="flex gap-3"><button type="button" disabled={isGuest || !canEdit || mutation.saving} className={primaryButton} onClick={() => { if (!canEdit || isGuest) return; void mutation.submit("/api/" + endpoint + "/" + row.id, "PATCH", { action }, () => { setPanel(null); setAction(""); notify("Order updated successfully."); }); }}>{mutation.saving ? "Processing..." : "Confirm"}</button><button type="button" className={secondaryButton} disabled={mutation.saving} onClick={() => setAction("")}>Go back</button></div></div>}
+        {!action && <div className="flex flex-wrap gap-3">{row.status === "PENDING" && <button type="button" className={secondaryButton} onClick={() => setPanel({ kind: "edit", id: row.id })}>Edit pending order</button>}{row.status === "PENDING" && <button type="button" className={primaryButton} onClick={() => setAction("confirm")}>{sales ? "Confirm order" : "Mark as ordered"}</button>}{row.status === (sales ? "CONFIRMED" : "ORDERED") && <button type="button" className={primaryButton} onClick={() => setAction("complete")}>{sales ? "Complete sale" : "Receive purchase"}</button>}{["PENDING", sales ? "CONFIRMED" : "ORDERED"].includes(row.status) && <button type="button" className={secondaryButton} onClick={() => setAction("cancel")}>Cancel order</button>}{["COMPLETED", "RECEIVED", "CANCELLED"].includes(row.status) && <p className="text-sm text-slate-500 dark:text-neutral-400">This order’s stock and order details are final. Its audit history is retained.</p>}</div>}
+        {action && <div className="rounded-lg border border-amber-200 p-4 dark:border-amber-900"><p className="mb-4 text-sm">{action === "complete" ? (sales ? "Complete this cash sale? Confirm that full cash payment has been collected. Stock will decrease; cash / revenue and cost of goods sold / inventory entries will be posted." : "Receive this purchase? Stock will increase and balanced inventory / payable entries will be posted.") : action === "cancel" ? "Cancel this order? It will remain in history and cannot be reopened." : "Confirm this order for processing?"}</p><div className="flex gap-3"><button type="button" disabled={isGuest || !canEdit || mutation.saving} className={primaryButton} onClick={() => { if (!canEdit || isGuest) return; void mutation.submit("/api/" + endpoint + "/" + row.id, "PATCH", { action }, () => { setPanel(null); setAction(""); notify("Order updated successfully."); }); }}>{mutation.saving ? "Processing..." : "Confirm"}</button><button type="button" className={secondaryButton} disabled={mutation.saving} onClick={() => setAction("")}>Go back</button></div></div>}
       </div>}
     </Modal>
   </section>;

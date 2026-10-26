@@ -13,6 +13,9 @@ import { purchaseCreateSchema } from "@/validations/purchase-create.schema";
 import { createProductInTransaction } from "./inventory.service";
 import { canWrite } from "@/lib/access";
 import { assertNoDuplicateContact } from "@/server/record-duplicates";
+import { inventoryCostChange } from "@/server/inventory-cost";
+import { postLedgerEntries } from "@/server/ledger-posting";
+import { philippineDate } from "@/lib/feature-list";
 
 export async function listTransactions(kind: TransactionKind, user: CurrentUser): Promise<TransactionRow[]> {
   const where = orderAccessWhere(user, kind);
@@ -20,8 +23,8 @@ export async function listTransactions(kind: TransactionKind, user: CurrentUser)
     const rows = await prisma.orders.findMany({ where, include: { customers: { select: { name: true } }, users: { select: { name: true } }, order_items: { include: { products: { select: { name: true, sku: true } } } } }, orderBy: [{ order_date: "desc" }, { id: "desc" }] });
     return rows.map(row => ({ id: row.id.toString(), party: row.customers.name, partyId: row.customer_id.toString(), timestamp: row.order_date.toISOString(), status: row.status, total: row.total_amount.toFixed(2), createdBy: row.users.name, items: row.order_items.map(item => ({ id: item.id.toString(), productId: item.product_id.toString(), name: item.products.name, sku: item.products.sku, quantity: item.quantity, unitPrice: item.unit_price.toFixed(2), lineTotal: item.line_total.toFixed(2) })) }));
   }
-  const rows = await prisma.purchase_orders.findMany({ where, include: { suppliers: { select: { name: true } }, users: { select: { name: true } }, purchase_items: { include: { products: { select: { name: true, sku: true } } } } }, orderBy: [{ purchase_date: "desc" }, { id: "desc" }] });
-  return rows.map(row => ({ id: row.id.toString(), party: row.suppliers.name, partyId: row.supplier_id.toString(), timestamp: row.purchase_date.toISOString(), status: row.status, total: row.total_amount.toFixed(2), createdBy: row.users.name, items: row.purchase_items.map(item => ({ id: item.id.toString(), productId: item.product_id.toString(), name: item.products.name, sku: item.products.sku, quantity: item.quantity, unitPrice: item.unit_price.toFixed(2), lineTotal: item.line_total.toFixed(2) })) }));
+  const rows = await prisma.purchase_orders.findMany({ where, include: { suppliers: { select: { name: true } }, users: { select: { name: true } }, purchase_payments: { orderBy: [{ payment_date: "asc" }, { id: "asc" }], select: { id: true, amount: true, payment_date: true, reference: true } }, purchase_items: { include: { products: { select: { name: true, sku: true } } } } }, orderBy: [{ purchase_date: "desc" }, { id: "desc" }] });
+  return rows.map(row => ({ id: row.id.toString(), party: row.suppliers.name, partyId: row.supplier_id.toString(), timestamp: row.purchase_date.toISOString(), status: row.status, total: row.total_amount.toFixed(2), createdBy: row.users.name, payments: row.purchase_payments.map(payment => ({ id: payment.id.toString(), amount: payment.amount.toFixed(2), date: payment.payment_date.toISOString().slice(0, 10), reference: payment.reference })), items: row.purchase_items.map(item => ({ id: item.id.toString(), productId: item.product_id.toString(), name: item.products.name, sku: item.products.sku, quantity: item.quantity, unitPrice: item.unit_price.toFixed(2), lineTotal: item.line_total.toFixed(2) })) }));
 }
 
 export async function prepareTransaction(tx: Prisma.TransactionClient, kind: TransactionKind, data: TransactionInput | OrderInput, user: CurrentUser) {
@@ -41,7 +44,7 @@ export async function prepareTransaction(tx: Prisma.TransactionClient, kind: Tra
     if (kind === "sales" && item.quantity > product.stock_qty) {
       throw new BusinessError(`Insufficient stock for ${product.name}. Available: ${product.stock_qty}. Requested: ${item.quantity}.`);
     }
-    const price = kind === "sales" ? product.selling_price : product.unit_cost;
+    const price = kind === "sales" ? product.selling_price : item.unitPrice === undefined ? product.unit_cost : new Prisma.Decimal(item.unitPrice);
     return { product_id: product.id, quantity: item.quantity, unit_price: price, line_total: price.mul(item.quantity) };
   });
   const total = items.reduce((sum, item) => sum.add(item.line_total), new Prisma.Decimal(0));
@@ -62,9 +65,9 @@ export async function createTransaction(kind: TransactionKind, input: unknown, u
     for (const item of data.items) {
       if ("newProduct" in item && item.newProduct) {
         const product = await createProductInTransaction(tx, item.newProduct, user.id);
-        resolvedItems.push({ productId: product.id.toString(), quantity: item.quantity });
+        resolvedItems.push({ productId: product.id.toString(), quantity: item.quantity, unitPrice: item.unitPrice });
       } else if (item.productId !== undefined) {
-        resolvedItems.push({ productId: item.productId, quantity: item.quantity });
+        resolvedItems.push({ productId: item.productId, quantity: item.quantity, unitPrice: item.unitPrice });
       }
     }
     const { partyId, items, total, date } = await prepareTransaction(tx, kind, { ...data, items: resolvedItems }, user);
@@ -86,7 +89,8 @@ export async function editTransaction(kind: TransactionKind, recordId: string, i
       ? await tx.orders.findUnique({ where: { id, ...scope }, include: { order_items: true } })
       : await tx.purchase_orders.findUnique({ where: { id, ...scope }, include: { purchase_items: true } });
     if (!existing) throw new BusinessError("Transaction not found.", 404);
-    const { partyId, items, total, date } = await prepareTransaction(tx, kind, data, user);
+    const pricedData = kind === "purchasing" && "purchase_items" in existing ? { ...data, items: data.items.map(item => ({ ...item, unitPrice: item.unitPrice ?? existing.purchase_items.find(saved => saved.product_id.toString() === item.productId)?.unit_price.toFixed(2) })) } : data;
+    const { partyId, items, total, date } = await prepareTransaction(tx, kind, pricedData, user);
     const changed = kind === "sales"
       ? await tx.orders.updateMany({ where: { id, ...scope, status: "PENDING" }, data: { customer_id: partyId, order_date: date, subtotal: total, tax: 0, total_amount: total, updated_at: new Date() } })
       : await tx.purchase_orders.updateMany({ where: { id, ...scope, status: "PENDING" }, data: { supplier_id: partyId, purchase_date: date, total_amount: total, updated_at: new Date() } });
@@ -110,6 +114,7 @@ export async function transitionTransaction(kind: TransactionKind, recordId: str
     const row = kind === "sales" ? await tx.orders.findUnique({ where: { id, ...scope }, include: { order_items: true } }) : await tx.purchase_orders.findUnique({ where: { id, ...scope }, include: { purchase_items: true } });
     if (!row) throw new BusinessError("Transaction not found.", 404);
     const status = nextStatus(kind, row.status, action);
+    if (kind === "purchasing" && action === "complete" && "purchase_date" in row && philippineDate(row.purchase_date.toISOString()) > philippineDate(new Date().toISOString())) throw new BusinessError("A future-dated purchase cannot be received yet.");
     const changed = kind === "sales"
       ? await tx.orders.updateMany({ where: { id, ...scope, status: row.status }, data: { status, updated_at: new Date() } })
       : await tx.purchase_orders.updateMany({ where: { id, ...scope, status: row.status }, data: { status, updated_at: new Date() } });
@@ -130,16 +135,22 @@ export async function transitionTransaction(kind: TransactionKind, recordId: str
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
-type StockItem = { product_id: bigint; quantity: number };
+type StockItem = { product_id: bigint; quantity: number; unit_price: Prisma.Decimal };
 
 export async function postTransactionEffects(tx: Prisma.TransactionClient, kind: TransactionKind, id: bigint, items: StockItem[], total: Prisma.Decimal, user: CurrentUser, bulkMovements = false) {
   const reference = kind === "sales" ? "ORDER" : "PURCHASE_ORDER";
   const userId = user.id;
+  let costOfGoods = new Prisma.Decimal(0);
+  const movementCosts = new Map<bigint, Prisma.Decimal>();
   // Sort locks consistently; a conditional decrement prevents concurrent overselling.
   for (const item of [...items].sort((a, b) => a.product_id < b.product_id ? -1 : a.product_id > b.product_id ? 1 : 0)) {
+    const before = await tx.products.findUnique({ where: { id: item.product_id } });
+    if (!before || before.status !== "ACTIVE") throw new BusinessError("A product is unavailable or inactive. Review the order.");
+    if (kind === "sales" && before.stock_qty < item.quantity) throw new BusinessError(`Insufficient stock for ${before.name}. Available: ${before.stock_qty}.`);
+    const cost = inventoryCostChange(before, item.quantity, kind === "sales" ? "out" : "in", kind === "purchasing" ? item.unit_price : undefined);
     const changedStock = await tx.products.updateMany({
-      where: { id: item.product_id, status: "ACTIVE", ...(kind === "sales" ? { stock_qty: { gte: item.quantity } } : { stock_qty: { lte: 2147483647 - item.quantity } }) },
-      data: { stock_qty: kind === "sales" ? { decrement: item.quantity } : { increment: item.quantity }, updated_at: new Date() },
+      where: { id: item.product_id, status: "ACTIVE", inventory_value: before.inventory_value, ...(kind === "sales" ? { stock_qty: { gte: item.quantity } } : { stock_qty: { lte: 2147483647 - item.quantity } }) },
+      data: { stock_qty: kind === "sales" ? { decrement: item.quantity } : { increment: item.quantity }, inventory_value: cost.value, unit_cost: cost.averageCost, updated_at: new Date() },
     });
     if (changedStock.count !== 1) {
       const product = await tx.products.findUnique({ where: { id: item.product_id }, select: { name: true, stock_qty: true, status: true } });
@@ -151,11 +162,15 @@ export async function postTransactionEffects(tx: Prisma.TransactionClient, kind:
       throw new BusinessError(`Insufficient stock or inactive product: ${product?.name ?? "Product"}. Available: ${product?.stock_qty ?? 0}.`);
     }
     // The existing PostgreSQL constraint stores positive magnitudes for every type.
-    if (!bulkMovements) await tx.inventory_movements.create({ data: { product_id: item.product_id, type: kind === "sales" ? "SALE" : "PURCHASE", quantity: item.quantity, reference_type: reference, reference_id: id, created_by: userId } });
+    movementCosts.set(item.product_id, cost.amount);
+    if (kind === "sales") costOfGoods = costOfGoods.add(cost.amount);
+    if (!bulkMovements) await tx.inventory_movements.create({ data: { product_id: item.product_id, type: kind === "sales" ? "SALE" : "PURCHASE", quantity: item.quantity, cost_amount: cost.amount, reference_type: reference, reference_id: id, created_by: userId } });
   }
-  if (bulkMovements) await tx.inventory_movements.createMany({ data: items.map(item => ({ product_id: item.product_id, type: kind === "sales" ? "SALE" : "PURCHASE", quantity: item.quantity, reference_type: reference, reference_id: id, created_by: userId })) });
+  if (bulkMovements) await tx.inventory_movements.createMany({ data: items.map(item => ({ product_id: item.product_id, type: kind === "sales" ? "SALE" : "PURCHASE", quantity: item.quantity, cost_amount: movementCosts.get(item.product_id), reference_type: reference, reference_id: id, created_by: userId })) });
   // Approved rules: cash sale revenue, or inventory received on supplier credit.
   const accounts = kind === "sales" ? ["Cash", "Sales Revenue"] : ["Inventory", "Accounts Payable"];
-  await tx.ledger_entries.createMany({ data: accounts.map((account, index) => ({ account_name: account, entry_type: index === 0 ? "DEBIT" : "CREDIT", amount: total, reference_type: reference, reference_id: id, description: kind === "sales" ? "Completed cash sale" : "Purchase inventory received on credit", created_by: userId })) });
-  await recordAudit(tx, user, { action: "LEDGER_POSTED", entity: "LEDGER", entityId: id, after: { reference_type: reference, reference_id: id, amount: total, name: accounts.join(" / ") } });
+  await postLedgerEntries(tx, accounts.map((account, index) => ({ account_name: account, entry_type: index === 0 ? "DEBIT" : "CREDIT", amount: total, reference_type: reference, reference_id: id, description: kind === "sales" ? "Completed cash sale" : "Purchase inventory received on credit", created_by: userId })));
+  if (costOfGoods.gt("9999999999.99")) throw new BusinessError("The inventory cost exceeds the ledger limit. Split this sale into smaller orders.");
+  if (kind === "sales" && costOfGoods.gt(0)) await postLedgerEntries(tx, ["Cost of Goods Sold", "Inventory"].map((account, index) => ({ account_name: account, entry_type: index === 0 ? "DEBIT" : "CREDIT", amount: costOfGoods, reference_type: reference, reference_id: id, description: "Moving weighted average cost of completed sale", created_by: userId })));
+  await recordAudit(tx, user, { action: "LEDGER_POSTED", entity: "LEDGER", entityId: id, after: { reference_type: reference, reference_id: id, amount: total, cost_amount: costOfGoods, name: accounts.join(" / ") } });
 }

@@ -1,20 +1,23 @@
 "use client";
 import FormLabel from "@/components/ui/FormLabel";
 import { useState } from "react";
-import { Eye } from "lucide-react";
+import { Eye, Info } from "lucide-react";
 import FeatureHeading from "@/components/ui/FeatureHeading";
 import FeatureTable, { type FeatureColumn } from "@/components/ui/FeatureTable";
 import StatusBadge from "@/components/ui/StatusBadge";
 import Modal from "@/components/ui/Modal";
 import RecordDetails from "@/components/ui/RecordDetails";
+import Table from "@/components/ui/Table";
 import MetricCards from "./MetricCards";
-import { control, iconButton } from "@/components/ui/feature-styles";
+import LedgerGuide from "./LedgerGuide";
+import { control, iconButton, secondaryButton } from "@/components/ui/feature-styles";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { fromMinorUnits, sumMoney, toMinorUnits } from "@/lib/money";
 import type { LedgerRow } from "@/types/features";
 export default function LedgerManager({ rows }: { rows: LedgerRow[] }) {
   const [account, setAccount] = useState("");
   const [selected, setSelected] = useState<LedgerRow | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
   const columns: FeatureColumn<LedgerRow>[] = [
     { field: "date", label: "Date", width: 220, value: row => formatDateTime(row.timestamp) },
     { field: "account", label: "Account", width: 190, value: row => row.account },
@@ -23,11 +26,12 @@ export default function LedgerManager({ rows }: { rows: LedgerRow[] }) {
     { field: "reference", label: "Reference", width: 190, value: row => row.reference },
     { field: "description", label: "Description", width: 260, value: row => row.description ?? "—" },
   ];
-  return <section><FeatureHeading title="Ledger Entries" description="View financial transactions and their business references" /><FormLabel label="Account" className="mb-4 grid max-w-xs gap-1.5 text-xs text-slate-500 dark:text-neutral-400"><select value={account} onChange={event => setAccount(event.target.value)} className={control}><option value="">All accounts</option>{[...new Set(rows.map(row => row.account))].sort().map(value => <option key={value}>{value}</option>)}</select></FormLabel>
+  return <section><FeatureHeading title="Ledger Entries" description="View financial transactions and their business references"><button type="button" className={secondaryButton} onClick={() => setGuideOpen(true)}><Info className="size-4" aria-hidden="true" />Ledger guide</button></FeatureHeading><FormLabel label="Account" className="mb-4 grid max-w-xs gap-1.5 text-xs text-slate-500 dark:text-neutral-400"><select value={account} onChange={event => setAccount(event.target.value)} className={control}><option value="">All accounts</option>{[...new Set(rows.map(row => row.account))].sort().map(value => <option key={value}>{value}</option>)}</select></FormLabel>
     <FeatureTable key={account} rows={rows.filter(row => !account || row.account === account)} columns={columns} label="Ledger entries" searchText={row => [row.account, row.reference, row.description, row.createdBy].join(" ")} statusValue={row => row.type} timestamp={row => row.timestamp} exportable actions={row => <button type="button" className={iconButton} aria-label={"View ledger entry " + row.id} onClick={() => setSelected(row)}><Eye className="size-4" /></button>} onFiltered={filtered => {
       const debits = sumMoney(filtered.filter(row => row.type === "DEBIT").map(row => row.amount)); const credits = sumMoney(filtered.filter(row => row.type === "CREDIT").map(row => row.amount));
       return <MetricCards metrics={[{ label: "Total Debits", value: formatCurrency(Number(debits)) }, { label: "Total Credits", value: formatCurrency(Number(credits)) }, { label: "Debit less credit", value: formatCurrency(Number(fromMinorUnits(toMinorUnits(debits) - toMinorUnits(credits)))), note: "For the current filters; this is not a cash balance." }]} />;
     }} />
-    <Modal open={!!selected} title="Ledger entry details" onClose={() => setSelected(null)}>{selected && <RecordDetails fields={[["Date", formatDateTime(selected.timestamp)], ["Account", selected.account], ["Type", selected.type], ["Amount", formatCurrency(Number(selected.amount))], ["Reference", selected.reference], ["Created by", selected.createdBy], ["Description", selected.description]]} />}</Modal>
+    <Modal wide open={!!selected} title="Ledger entry details" onClose={() => setSelected(null)}>{selected && <><RecordDetails fields={[["Date", formatDateTime(selected.timestamp)], ["Account", selected.account], ["Type", selected.type], ["Amount", formatCurrency(Number(selected.amount))], ["Reference", selected.reference], ["Created by", selected.createdBy], ["Description", selected.description]]} /><h3 className="mb-3 mt-5 font-semibold">Entries for this reference</h3><Table headers={["Account", "Type", "Amount"]} rows={rows.filter(row => row.reference === selected.reference).map(row => ({ id: row.id, cells: [row.account, row.type, formatCurrency(Number(row.amount))] }))} /></>}</Modal>
+    <Modal wide open={guideOpen} title="How the general ledger works" onClose={() => setGuideOpen(false)}><LedgerGuide /></Modal>
   </section>;
 }

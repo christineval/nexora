@@ -21,7 +21,7 @@ import { numericInputProps } from "@/lib/numeric-input";
 
 export default function ContactManager({ kind, rows, initialId, canEdit = true }: { kind: "customers" | "suppliers"; rows: ContactRow[]; initialId?: string; canEdit?: boolean }) {
   const isGuest = useGuestPreview();
-  const canPreview = canEdit || isGuest;
+  const canPreview = canEdit && !isGuest;
   const singular = kind === "customers" ? "Customer" : "Supplier";
   const [duplicateName, setDuplicateName] = useState(false);
   const [panel, setPanelState] = useState<{ kind: "create" | "edit" | "details"; id?: string } | null>(initialId ? { kind: "details", id: initialId } : null);
