@@ -10,12 +10,13 @@ export function loadTs(path, mocks = {}, cache = new Map()) {
   const compiledModule = { exports: {} }; cache.set(absolute, compiledModule.exports);
   const { outputText } = ts.transpileModule(readFileSync(absolute, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } });
   runInNewContext(outputText, {
-    module: compiledModule, exports: compiledModule.exports, Buffer, Date, console, URL, Response, Request, setTimeout, process,
+    module: compiledModule, exports: compiledModule.exports, Buffer, Date, console, URL, URLSearchParams, Response, Request, AbortController, TextEncoder, crypto, setTimeout, process,
     require(name) {
       if (name in mocks) return mocks[name];
       if (name === "server-only") return {};
       if (name.startsWith("@/") || name.startsWith(".")) {
         const base = name.startsWith("@/") ? resolve("src", name.slice(2)) : resolve(dirname(absolute), name);
+        if (base.endsWith(".json")) return JSON.parse(readFileSync(base, "utf8"));
         const file = existsSync(base + ".ts") ? base + ".ts" : base + ".tsx";
         return loadTs(file, mocks, cache);
       }

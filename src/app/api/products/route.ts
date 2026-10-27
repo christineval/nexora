@@ -1,6 +1,6 @@
-import { api, checkOrigin } from "@/lib/api";
+import { api, checkOrigin, readJson } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { listProducts, createProduct } from "@/services/inventory.service";
-import { createProductSchema } from "@/validations/product.schema";
-export async function GET() { return api(async () => { await requireUser("inventory"); return listProducts(); }); }
-export async function POST(request: Request) { return api(async () => { checkOrigin(request); await requireUser("inventory", true); const row = await createProduct(createProductSchema.parse(await request.json())); return { id: row.id.toString(), sku: row.sku }; }, 201); }
+import { listProducts } from "@/server/data/erp-data";
+import { createProductRequestSchema } from "@/validations/product.schema";
+export async function GET(request: Request) { return api(request, async () => { const user = await requireUser("inventory"); return listProducts(user); }); }
+export async function POST(request: Request) { return api(request, async () => { checkOrigin(request); const user = await requireUser("inventory", true); const { createProduct } = await import("@/services/inventory.service"); const row = await createProduct(createProductRequestSchema.parse(await readJson(request)), user.id); return { id: row.id.toString(), sku: row.sku }; }, 201); }

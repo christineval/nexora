@@ -1,22 +1,33 @@
 import "server-only";
+import { recordAudit, recordAudits } from "@/server/audit";
+import type { CurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import type { InventoryMovementRow, ProductRow } from "@/types/views";
 import type { CreateProductInput } from "@/validations/product.schema";
-import { updateProductSchema } from "@/validations/product.schema";
+import { createProductRequestSchema, updateProductSchema } from "@/validations/product.schema";
 import { idSchema } from "@/validations/shared";
+import { BusinessError } from "@/lib/errors";
+import { assertNoDuplicateProducts } from "@/server/record-duplicates";
+import { fromMinorUnits, toMinorUnits } from "@/lib/money";
 
 
 export async function listProducts(): Promise<ProductRow[]> {
   const products = await prisma.products.findMany({ orderBy: { name: "asc" } });
   return products.map((product) => ({
-    productId: product.id.toString(), sku: product.sku, name: product.name, size: product.size,
-    stockQty: product.stock_qty, unitCost: product.unit_cost.toNumber(),
+    productId: product.id.toString(), sku: product.sku, supplierProductCode: product.supplier_product_code, name: product.name, size: product.size,
+    stockQty: product.stock_qty, unitCost: product.unit_cost.toNumber(), inventoryValue: product.inventory_value.toFixed(2),
     sellingPrice: product.selling_price.toNumber(), status: product.status,
   }));
 }
 
 
-export async function getProduct(id: string) { return (await listProducts()).find(row => row.productId === id) ?? null; }
+export async function getProduct(id: string): Promise<ProductRow | null> {
+  const product = await prisma.products.findUnique({ where: { id: BigInt(idSchema.parse(id)) } });
+  if (!product) return null;
+  return { productId: product.id.toString(), sku: product.sku, supplierProductCode: product.supplier_product_code, name: product.name, size: product.size,
+    stockQty: product.stock_qty, unitCost: product.unit_cost.toNumber(), inventoryValue: product.inventory_value.toFixed(2), sellingPrice: product.selling_price.toNumber(), status: product.status };
+}
 
 
 export async function listInventoryMovements(): Promise<InventoryMovementRow[]> {
@@ -55,38 +66,74 @@ export async function getNextProductSku(): Promise<string> {
 }
 
 
-export async function createProduct(data: CreateProductInput){
-  return prisma.$transaction(async (tx) => {
-    const result = await tx.$queryRaw<Array<{sku: string}>>`
-    SELECT 'ERP-' || LPAD(
-      nextval('public.product_sku_seq'::regclass)::text,
-      4,
-      '0'
-    ) AS sku`;
-    
-    const sku = result[0].sku;
-
-    if(!sku) {
-      throw new Error("Failed to generate SKU");
-    }
-
-    return tx.products.create({
-      data: {
-        sku,
-        name: data.name,
-        size: data.size || null,
-        unit_cost: data.unitCost,
-        selling_price: data.sellingPrice,
-        stock_qty: 0,
-        status: "ACTIVE",
-      }
-    })
-  });
+export async function createProduct(input: unknown, actorId: bigint) {
+  const { quantity, ...data } = createProductRequestSchema.parse(input);
+  return prisma.$transaction(tx => createProductInTransaction(tx, data, actorId, quantity), { isolationLevel: "Serializable" });
 }
 
-export async function updateProduct(recordId: string, input: unknown) {
+export async function createProductInTransaction(tx: Prisma.TransactionClient, data: CreateProductInput, actorId: bigint, initialQuantity = 0) {
+  await assertNoDuplicateProducts(tx, [data]);
+  const result = await tx.$queryRaw<Array<{ sku: string }>>`
+    SELECT 'ERP-' || LPAD(value, GREATEST(4, LENGTH(value)), '0') AS sku
+    FROM (SELECT nextval('public.product_sku_seq'::regclass)::text AS value) generated`;
+  const sku = result[0]?.sku;
+  if (!sku) throw new Error("Failed to generate SKU");
+
+  const product = await tx.products.create({
+    data: {
+      sku,
+      supplier_product_code: data.supplierProductCode || null,
+      name: data.name,
+      size: data.size || null,
+      unit_cost: data.unitCost,
+      selling_price: data.sellingPrice,
+      stock_qty: initialQuantity,
+      inventory_value: fromMinorUnits(toMinorUnits(data.unitCost) * BigInt(initialQuantity)),
+      status: "ACTIVE",
+    },
+  });
+  await recordAudit(tx, actorId, { action: "PRODUCT_CREATED", entity: "PRODUCT", entityId: product.id, after: product });
+  if (initialQuantity > 0) {
+    const movement = await tx.inventory_movements.create({ data: { product_id: product.id, type: "ADJUSTMENT_IN", quantity: initialQuantity, cost_amount: product.inventory_value, reference_type: "ADJUSTMENT", created_by: actorId } });
+    await recordAudit(tx, actorId, { action: "STOCK_ADJUSTED", entity: "INVENTORY_MOVEMENT", entityId: movement.id, before: { stock_qty: 0 }, after: { ...movement, stock_qty: initialQuantity } });
+  }
+  return product;
+}
+
+export async function createProductsInTransaction(tx: Prisma.TransactionClient, inputs: CreateProductInput[], actor: CurrentUser) {
+  if (!inputs.length) return [];
+  await assertNoDuplicateProducts(tx, inputs);
+  const generated = await tx.$queryRaw<Array<{ sku: string }>>`
+    SELECT 'ERP-' || LPAD(value, GREATEST(4, LENGTH(value)), '0') AS sku
+    FROM (SELECT ordinal, nextval('public.product_sku_seq'::regclass)::text AS value
+      FROM generate_series(1, ${inputs.length}::int) AS series(ordinal)) generated
+    ORDER BY ordinal`;
+  if (generated.length !== inputs.length) throw new Error("Failed to generate product SKUs");
+  const products = await tx.products.createManyAndReturn({ data: inputs.map((input, index) => ({
+    sku: generated[index].sku, name: input.name, supplier_product_code: input.supplierProductCode || null,
+    size: input.size || null, unit_cost: input.unitCost, selling_price: input.sellingPrice, stock_qty: 0, inventory_value: 0, status: "ACTIVE",
+  })) });
+  const bySku = new Map(products.map(product => [product.sku, product]));
+  const ordered = generated.map(({ sku }) => {
+    const product = bySku.get(sku);
+    if (!product) throw new Error("A created product is missing");
+    return product;
+  });
+  await recordAudits(tx, actor, ordered.map(product => ({ action: "PRODUCT_CREATED", entity: "PRODUCT", entityId: product.id, after: product })));
+  return ordered;
+}
+
+export async function updateProduct(recordId: string, input: unknown, actorId: bigint) {
   const id = BigInt(idSchema.parse(recordId));
   const data = updateProductSchema.parse(input);
-  const row = await prisma.products.update({ where: { id }, data: { name: data.name, size: data.size || null, unit_cost: data.unitCost, selling_price: data.sellingPrice, status: data.status, updated_at: new Date() } });
-  return { id: row.id.toString() };
+  return prisma.$transaction(async tx => {
+    const before = await tx.products.findUnique({ where: { id } });
+    if (!before) throw new BusinessError("Product not found.", 404);
+    if (data.status !== before.status) throw new BusinessError("Use the Archive or Restore action to change product availability.", 409);
+    if (before.stock_qty > 0 && !new Prisma.Decimal(before.unit_cost).equals(data.unitCost)) throw new BusinessError("Unit cost is calculated from stock receipts while stock is on hand. Enter the supplier cost on a purchase instead.");
+    await assertNoDuplicateProducts(tx, [{ ...data, supplierProductCode: data.supplierProductCode ?? before.supplier_product_code }], id);
+    const row = await tx.products.update({ where: { id }, data: { name: data.name, supplier_product_code: data.supplierProductCode === undefined ? undefined : data.supplierProductCode || null, size: data.size || null, unit_cost: data.unitCost, selling_price: data.sellingPrice, status: data.status, updated_at: new Date() } });
+    await recordAudit(tx, actorId, { action: "PRODUCT_UPDATED", entity: "PRODUCT", entityId: id, before, after: row });
+    return { id: row.id.toString() };
+  }, { isolationLevel: "Serializable" });
 }

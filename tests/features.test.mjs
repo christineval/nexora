@@ -3,10 +3,34 @@ import { test } from "node:test";
 import { loadTs } from "./load-ts.mjs";
 const { canAccess, canWrite } = loadTs("src/lib/access.ts");
 const { transactionSchema, moneySchema, idSchema } = loadTs("src/validations/shared.ts");
+const { orderSchema } = loadTs("src/validations/order.schema.ts");
 const { filterFeatureRows, philippineDate, csvCell } = loadTs("src/lib/feature-list.ts");
 const { toMinorUnits, fromMinorUnits, sumMoney } = loadTs("src/lib/money.ts");
 const { nextStatus } = loadTs("src/lib/workflow.ts");
 const { stockDelta } = loadTs("src/lib/stock.ts");
+
+test("sales and purchase dates allow today and past dates but reject future dates", () => {
+  const now = new Date();
+  const today = philippineDate(now.toISOString());
+  const tomorrow = philippineDate(new Date(now.getTime() + 86400000).toISOString());
+  const order = { partyId: "1", items: [{ productId: "2", quantity: 1 }] };
+  assert.equal(orderSchema.safeParse({ ...order, date: today }).success, true);
+  assert.equal(orderSchema.safeParse({ ...order, date: "2000-01-01" }).success, true);
+  const result = orderSchema.safeParse({ ...order, date: tomorrow });
+  assert.equal(result.success, false);
+  assert.match(result.error.issues[0].message, /cannot be in the future/);
+  assert.equal(transactionSchema.safeParse({ ...order, date: tomorrow }).success, false);
+  assert.equal(philippineDate("2026-10-11T16:00:00Z"), "2026-10-12");
+});
+
+test("sales require exactly one registered customer or a valid walk-in name", () => {
+  const order = { date: "2026-10-10", items: [{ productId: "2", quantity: 1 }] };
+  assert.equal(orderSchema.safeParse({ ...order, partyId: "1" }).success, true);
+  assert.equal(orderSchema.parse({ ...order, walkInCustomer: { name: "  Buyer  " } }).walkInCustomer.name, "Buyer");
+  for (const customer of [{}, { partyId: "1", walkInCustomer: { name: "Buyer" } }, { walkInCustomer: { name: "   " } }, { walkInCustomer: { name: "a".repeat(151) } }, { partyId: "0" }]) {
+    assert.equal(orderSchema.safeParse({ ...order, ...customer }).success, false);
+  }
+});
 
 test("roles enforce module access and sales has read-only inventory", () => {
   assert.equal(canAccess("SALES", "inventory"), true);
@@ -56,9 +80,13 @@ test("movement direction is derived from type, without changing positive storage
 });
 
 
-test("guests can view every module and cannot mutate any module", () => {
-  for (const feature of ["sales", "customers", "inventory", "purchasing", "suppliers", "finance", "reports", "settings"]) {
+test("guests can view business demos but cannot access administration or mutate any module", () => {
+  for (const feature of ["sales", "customers", "inventory", "purchasing", "suppliers", "finance", "reports"]) {
     assert.equal(canAccess("GUEST", feature), true);
+    assert.equal(canWrite("GUEST", feature), false);
+  }
+  for (const feature of ["settings", "audit", "unknown", "__proto__"]) {
+    assert.equal(canAccess("GUEST", feature), false);
     assert.equal(canWrite("GUEST", feature), false);
   }
 });

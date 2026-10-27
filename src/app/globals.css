@@ -4,8 +4,14 @@ body { margin: 0; font-family: Arial, Helvetica, sans-serif; }
 button, a, input { -webkit-tap-highlight-color: transparent; }
 button:not(:disabled) { cursor: pointer; }
 
-.sidebar-scroll { scrollbar-width: none; -ms-overflow-style: none; }
-.sidebar-scroll::-webkit-scrollbar { display: none; }
+.sidebar-scroll { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.sidebar-scroll:hover, .sidebar-scroll:focus-within { scrollbar-color: #94a3b8 transparent; }
+[data-theme="dark"] .sidebar-scroll:hover, [data-theme="dark"] .sidebar-scroll:focus-within { scrollbar-color: #525252 transparent; }
+.sidebar-scroll::-webkit-scrollbar { width: 6px; }
+.sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+.sidebar-scroll::-webkit-scrollbar-thumb { border-radius: 999px; background: transparent; }
+.sidebar-scroll:hover::-webkit-scrollbar-thumb, .sidebar-scroll:focus-within::-webkit-scrollbar-thumb { background: #94a3b8; }
+[data-theme="dark"] .sidebar-scroll:hover::-webkit-scrollbar-thumb, [data-theme="dark"] .sidebar-scroll:focus-within::-webkit-scrollbar-thumb { background: #525252; }
 
 .snackbar-viewport {
   position: fixed;

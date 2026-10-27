@@ -1,14 +1,16 @@
 "use client";
+import { useGuestPreview } from "./GuestPreviewProvider";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useNotifications } from "./SnackbarProvider";
 export default function useMutation() {
+  const isGuest = useGuestPreview();
   const router = useRouter();
   const lock = useRef(false);
   const [saving, setSaving] = useState(false);
   const { notify, dismiss, dismissError } = useNotifications();
   async function submit(url: string, method: string, data: unknown, onSuccess?: (result: { id?: string }) => void) {
-    if (lock.current) return;
+    if (isGuest || lock.current) return;
     lock.current = true; setSaving(true); dismiss();
     try {
       const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });

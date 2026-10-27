@@ -1,5 +1,6 @@
 "use client";
 
+import FormLabel from "@/components/ui/FormLabel";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import ThemeToggle from "@/components/layout/ThemeToggle";
@@ -60,12 +61,12 @@ export default function LoginPage() {
         </div>
 
         <form className="mt-[34px] grid gap-5" onSubmit={handleSubmit}>
-          <div className="grid gap-2"><label htmlFor="email" className="text-xs font-medium">Email address</label><div className="relative w-full">
+          <div className="grid gap-2"><FormLabel label="Email address" required htmlFor="email" className="text-xs font-medium">{null}</FormLabel><div className="relative w-full">
             <Mail aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input className={inputClasses} aria-label="Email address" id="email" name="email" type="email" placeholder="Email address" autoComplete="username" required />
           </div></div>
           <div className="grid gap-[9px]">
-            <label htmlFor="password" className="text-xs font-medium">Password</label>
+            <FormLabel label="Password" required htmlFor="password" className="text-xs font-medium">{null}</FormLabel>
             <div className="relative">
                <Lock aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input className={`${inputClasses} pr-[68px]`} aria-label="Password" id="password" name="password" type={showPassword ? "text" : "password"} placeholder="Password" autoComplete="current-password" required />

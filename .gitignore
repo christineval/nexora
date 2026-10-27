@@ -1,4 +1,5 @@
 node_modules/
+.worktrees/
 .next/
 out/
 build/
@@ -14,4 +15,5 @@ next-env.d.ts
 .vercel/
 .tooling/
 backups/
+public/ocr/
 

@@ -26,6 +26,7 @@ model inventory_movements {
   product_id     BigInt
   type           String   @db.VarChar(30)
   quantity       Int
+  cost_amount    Decimal? @db.Decimal(24, 2)
   reference_type String?  @db.VarChar(30)
   reference_id   BigInt?
   created_by     BigInt
@@ -95,10 +96,12 @@ model orders {
 model products {
   id                  BigInt                @id @default(autoincrement())
   sku                 String                @unique @db.VarChar(50)
+  supplier_product_code String?             @db.VarChar(150)
   name                String                @db.VarChar(150)
   size                String?               @db.VarChar(50)
   stock_qty           Int                   @default(0)
   unit_cost           Decimal               @default(0) @db.Decimal(12, 2)
+  inventory_value     Decimal               @default(0) @db.Decimal(24, 2)
   selling_price       Decimal               @db.Decimal(12, 2)
   status              String                @default("ACTIVE") @db.VarChar(20)
   created_at          DateTime              @default(now()) @db.Timestamptz(6)
@@ -134,6 +137,7 @@ model purchase_orders {
   created_at     DateTime         @default(now()) @db.Timestamptz(6)
   updated_at     DateTime         @default(now()) @db.Timestamptz(6)
   purchase_items purchase_items[]
+  purchase_payments purchase_payments[]
   suppliers      suppliers        @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_supplier")
   users          users            @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_user")
 
@@ -156,6 +160,7 @@ model suppliers {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model users {
+  user_sessions       user_sessions[]
   id                  BigInt                @id @default(autoincrement())
   name                String                @db.VarChar(100)
   email               String                @unique @db.VarChar(255)
@@ -167,4 +172,60 @@ model users {
   ledger_entries      ledger_entries[]
   orders              orders[]
   purchase_orders     purchase_orders[]
+  purchase_payments   purchase_payments[]
+}
+
+model purchase_payments {
+  id                BigInt @id @default(autoincrement())
+  purchase_order_id BigInt
+  created_by        BigInt
+  payment_key       String @db.Uuid
+  amount            Decimal @db.Decimal(12, 2)
+  payment_date      DateTime @db.Date
+  reference         String? @db.VarChar(150)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  purchase_orders   purchase_orders @relation(fields: [purchase_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users             users @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([created_by, payment_key])
+  @@index([purchase_order_id, payment_date])
+}
+
+model user_sessions {
+  token_hash           String   @id @db.VarChar(64)
+  user_id              BigInt
+  password_fingerprint String   @db.VarChar(64)
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  expires_at           DateTime @db.Timestamptz(6)
+  users                users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@index([expires_at])
+}
+
+model api_rate_limits {
+  key        String   @id @db.VarChar(64)
+  count      Int
+  expires_at DateTime @db.Timestamptz(6)
+
+  @@index([expires_at])
+}
+
+model audit_logs {
+  id          BigInt   @id @default(autoincrement())
+  actor_id    BigInt?
+  actor_name  String   @db.VarChar(100)
+  actor_role  String?  @db.VarChar(30)
+  action      String   @db.VarChar(60)
+  entity_type String   @db.VarChar(30)
+  entity_id   BigInt?
+  outcome     String   @db.VarChar(20)
+  before      Json?
+  after       Json?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([created_at, id])
+  @@index([actor_id, created_at])
+  @@index([entity_type, entity_id])
+  @@index([action, created_at])
 }

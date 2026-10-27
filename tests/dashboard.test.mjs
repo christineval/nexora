@@ -10,7 +10,7 @@ test("dashboard recent orders are bounded, include existing statuses and preserv
   const tx = {
     products: { async count() { return 10; } },
     orders: { async findMany(query) {
-      if (query.where) {
+      if (query.where.status) {
         assert.equal(query.where.status, "COMPLETED");
         return [{ order_date: new Date("2026-10-10T00:00:00Z"), total_amount: new Prisma.Decimal("0.30") }];
       }
@@ -30,14 +30,14 @@ test("dashboard recent orders are bounded, include existing statuses and preserv
     return operation(tx);
   } };
   const { getDashboardMetrics } = loadTs("src/services/dashboard.service.ts", { "@/lib/prisma": { prisma } });
-  const metrics = await getDashboardMetrics({ includeRecentOrders: true });
+  const metrics = await getDashboardMetrics({ id: 1n, name: "Admin", role: "ADMIN" }, { includeRecentOrders: true });
   assert.equal(metrics.recentOrders.length, 4);
   assert.equal(metrics.recentOrders[0].id, "1");
   assert.equal(metrics.recentOrders[0].status, "PENDING");
   assert.equal(metrics.recentOrders[0].totalAmount, 12.5);
   assert.equal(metrics.totalSales, 0.3);
   assert.equal(metrics.transactions.length, 1);
-  const restricted = await getDashboardMetrics();
+  const restricted = await getDashboardMetrics({ id: 1n, name: "Admin", role: "ADMIN" });
   assert.equal(restricted.recentOrders.length, 0);
   assert.equal(recentQueries, 1);
 });

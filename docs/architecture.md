@@ -24,7 +24,7 @@ Next.js page / browser form
 - `src/components/features`: shared customer/supplier managers, order/purchase managers and forms, ledger view, reports, user administration, and settings.
 - `src/components/ui`: shared feature table with search, exact status/type filters, Philippine date filters, sorting, pagination and CSV export; headings, details, badges, errors, dialogs, and duplicate-submission protection.
 - `src/components/inventory`: preserved Products pattern, working product editor, adjustment dialog, and movement history.
-- `src/lib`: Prisma singleton, signed sessions, module access rules, safe API errors, presentation helpers, and decimal-safe report sums.
+- `src/lib`: Prisma singleton, registered and guest sessions, module access rules, safe API errors, presentation helpers, and decimal-safe report sums.
 - `src/validations`: schema-aligned trust-boundary validation for IDs, contacts, money, product data, transaction lines, adjustments, and users.
 - `src/types/features.ts`: serialized feature DTOs; IDs and Decimal values are strings and dates are ISO strings.
 - `prisma`: the introspected ten-table database schema and intentionally empty seed.
@@ -42,7 +42,7 @@ Approved accounting rules and role access are documented in the [README](../READ
 
 ## Authentication and client boundary
 
-The existing bcrypt hashes are verified with bcryptjs. The HTTP-only cookie holds an HMAC-signed user ID, expiry, and password-hash fingerprint. Authorization loads the current database role and returns only the user's ID, name, and role. Session secrets and hashes remain server-only. Password changes rotate the fingerprint and invalidate other sessions.
+The existing bcrypt hashes are verified with bcryptjs. Registered users receive a random opaque HTTP-only cookie; its SHA-256 digest, user reference, one-hour expiry and password fingerprint are stored in PostgreSQL. Logins lock the user row to enforce three active sessions, evicting the oldest on a fourth login. Logout revokes the stored session. Guest cookies remain HMAC-signed with a one-hour absolute expiry. Authorization loads the current database role and returns only the user's ID, name, and role. Session secrets and hashes remain server-only. Password changes rotate the fingerprint and invalidate other sessions. API requests use shared atomic PostgreSQL rate counters, including guest API requests; configure a trusted proxy IP header for per-client limits.
 
 Layout authentication is paired with per-module page checks and API permission checks. Navigation reflects the same module access map, including read-only inventory for SALES. Browser-supplied roles and creator IDs are not accepted.
 
@@ -56,3 +56,13 @@ The current list pattern loads data per page and performs filters/pagination in 
 
 No migrations, database resets, or destructive audit operations are part of this implementation.
 
+
+
+Sales and purchase order access is restricted to the authenticated creator for non-admin users; admins can access all orders. Module permissions still apply. The database query scope is shared by order lists, details, customer/supplier order histories, order reports and dashboard totals. Edits and status changes enforce ownership inside the transaction and retain creator predicates on updates. Inaccessible IDs return not found. Finance report access also remains creator-scoped; a finance user with no orders sees empty order reports. Guest order records remain synthetic demo data. Shared product, customer, supplier, stock-audit and ledger datasets retain their existing module permissions.
+
+Received invoice imports use `purchase-invoice.service.ts` and `POST /api/purchases/import`. They batch new product creation, prepare authoritative costs, create the received header/items, and reuse the transaction stock/finance posting helper within one serializable transaction. Request replay keys and payload hashes are recorded in the immutable receipt audit event; an actor-scoped PostgreSQL transaction advisory lock and existing order ownership predicates protect retries. Ordinary planned purchase orders retain their pending/ordered/received workflow. No new database tables or columns are introduced.
+
+Product lifecycle uses the existing ACTIVE/INACTIVE/DISCONTINUED status constraint. POST `/api/products/[id]/lifecycle` archives to INACTIVE or restores to ACTIVE; general product editing cannot change availability. DELETE `/api/products/[id]` requires a current admin password and an archived, zero-stock product with no order items, purchase items or inventory movements. A shared user-row lock guards against concurrent password/role changes; a product-row update lock, serializable transaction and existing restrictive foreign keys guard stock/reference checks and deletion. Successful operations retain immutable product audit snapshots. No stock, ledger or history records are deleted or rewritten, and SKU sequences are not reset.
+
+
+`server/record-duplicates.ts` enforces application duplicate rules within serializable product, contact, user and purchase transactions. Product name/size and contact name comparisons share normalized identity helpers with form previews. A missing product size conflicts with all matching names; sized variants require distinct non-empty sizes. Existing records are excluded on edit. These are service-level rules, not new database uniqueness constraints; direct database writes remain outside this validation boundary. Price schemas compare integer minor units to reject selling below cost for product creation, edits and nested purchase products. Invoice markup reuses the existing cent-safe suggestion utility and never overwrites catalog prices or manual prices without Apply.

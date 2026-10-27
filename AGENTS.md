@@ -410,6 +410,10 @@ Hiding navigation items is UX only. Every protected server action/API operation 
 
 Never trust a role sent by the browser.
 
+For every request that reads or changes a protected object, authenticate and authorize on the server before accessing the object. Enforce the applicable ownership or shared-access policy for the requested object and any referenced objects, including IDs from paths, query strings, and request bodies. Apply the same scope to lists, details, histories, reports, and mutations. Neither an authenticated session nor a valid object ID grants access by itself. Never use browser-supplied roles, owner IDs, or creator IDs as proof of access. `created_by` is an audit field; do not silently treat it as ownership without an established business rule. Add regression coverage for cross-user access, role changes, and tampered object references when implementing object access rules.
+
+Approved order ownership rule: non-admin users can access only sales and purchase orders whose `created_by` equals their authenticated user ID, within their module permissions. ADMIN users can access all orders. Apply the same creator scope to order lists, details, customer/supplier order histories, order reports, dashboard order totals, edits, and status changes. Reports access does not bypass ownership. Return not found for inaccessible order IDs and keep ownership predicates in transactional mutation guards. Guests use the bundled read-only snapshot exported from the separately configured local erp_lite demo database. Guest business reads never query either database at runtime. Guests cannot access Settings, Users or Audit Log, open creation/editing flows, or perform any business mutation. The snapshot excludes user account records.
+
 Passwords must be stored only as secure password hashes. Never return `password_hash` to the client.
 
 ## Route Handler Workflow
@@ -828,3 +832,13 @@ Include:
 - file summary grouped into Added, Edited, and Deleted files.
 
 Do not claim runtime/database behavior was verified when it was only inferred from code inspection.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

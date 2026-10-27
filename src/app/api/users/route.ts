@@ -1,5 +1,5 @@
-import { api, checkOrigin } from "@/lib/api";
+import { api, checkOrigin, readJson } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { listUsers, saveUser } from "@/services/user.service";
-export async function GET() { return api(async () => { await requireUser("settings"); return listUsers(); }); }
-export async function POST(request: Request) { return api(async () => { checkOrigin(request); const user = await requireUser("settings", true); return saveUser(await request.json(), user.id); }, 201); }
+import { listUsers } from "@/server/data/erp-data";
+export async function GET(request: Request) { return api(request, async () => { const user = await requireUser("settings"); return listUsers(user); }); }
+export async function POST(request: Request) { return api(request, async () => { checkOrigin(request); const user = await requireUser("settings", true); const { saveUser } = await import("@/services/user.service"); return saveUser(await readJson(request), user.id); }, 201); }

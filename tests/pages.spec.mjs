@@ -3,6 +3,421 @@ import { sessionFor } from "./test-session.mjs";
 
 test.beforeEach(async ({ context }) => { await context.addCookies([await sessionFor("ADMIN")]); });
 
+test("audit log shows admin history and filters while employees cannot access it", async ({ page, context }) => {
+  await page.goto("/settings/audit");
+  await expect(page.getByRole("heading", { name: "Audit Log", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Audit Log", exact: true })).toBeVisible();
+  await page.getByRole("textbox", { name: "Action", exact: true }).fill("LOGIN_SUCCEEDED");
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await expect(page).toHaveURL(/action=LOGIN_SUCCEEDED/);
+  await expect(page.getByRole("cell", { name: "LOGIN SUCCEEDED", exact: true }).first()).toBeVisible();
+  await page.screenshot({ path: "test-results/audit-log-desktop.png", fullPage: true, caret: "initial" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("heading", { name: "Audit Log", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: "test-results/audit-log-mobile.png", fullPage: true, caret: "initial" });
+  const response = await context.request.get("/api/audit?action=LOGIN_SUCCEEDED");
+  expect(response.status()).toBe(200);
+  const data = await response.json();
+  expect(data.rows.length).toBeGreaterThan(0);
+  expect(data.rows.every(row => row.action === "LOGIN_SUCCEEDED")).toBe(true);
+  expect(JSON.stringify(data)).not.toMatch(/password_hash|token_hash|password_fingerprint/);
+  await context.clearCookies();
+  await context.addCookies([await sessionFor("SALES")]);
+  expect((await context.request.get("/api/audit?role=ADMIN&actorId=1")).status()).toBe(403);
+  await page.goto("/settings/audit");
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("link", { name: "Audit Log", exact: true })).toHaveCount(0);
+});
+
+test("customer contact numbers accept digits only in create and edit forms", async ({ page, context }) => {
+  await page.goto("/customers");
+  for (const edit of [false, true]) {
+    if (edit) await page.getByRole("button", { name: /^Edit / }).first().click();
+    else await page.getByRole("button", { name: "Add Customer", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: edit ? "Edit customer" : "Add customer", exact: true });
+    const phone = dialog.getByRole("textbox", { name: "Phone", exact: true });
+    await expect(phone).toHaveAttribute("type", "tel");
+    await expect(phone).toHaveAttribute("inputmode", "numeric");
+    await phone.fill("");
+    await phone.pressSequentially("a09e+1-2.3");
+    await expect(phone).toHaveValue("09123");
+    expect(await phone.evaluate(element => {
+      const clipboardData = new DataTransfer(); clipboardData.setData("text/plain", "0912abc");
+      return !element.dispatchEvent(new ClipboardEvent("paste", { clipboardData, bubbles: true, cancelable: true }));
+    })).toBe(true);
+    await expect(phone).toHaveValue("09123");
+    await phone.fill("abc09123456789");
+    await expect(phone).toHaveValue("09123");
+    await phone.fill("09123456789");
+    await expect(phone).toHaveValue("09123456789");
+    await phone.fill("");
+    expect(await phone.evaluate(element => element.checkValidity())).toBe(true);
+    await dialog.getByRole("button", { name: "Close modal", exact: true }).click();
+  }
+  const invalid = await context.request.post("/api/customers", { headers: { Origin: "http://localhost:3000" }, data: { name: "Rejected contact test", email: "", phone: "0912abc", address: "", status: "ACTIVE" } });
+  expect(invalid.status()).toBe(400);
+});
+
+async function readInvoice(page, dialog, text) {
+  test.setTimeout(120000);
+  const image = await page.evaluate(value => {
+    const rows = value.split("\n");
+    const canvas = document.createElement("canvas"); canvas.width = 3000; canvas.height = 140 + rows.length * 90;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "white"; context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "black"; context.font = "32px monospace";
+    rows.forEach((line, index) => context.fillText(line, 50, 90 + index * 90));
+    return canvas.toDataURL("image/png").split(",")[1];
+  }, text);
+  await dialog.getByLabel("Receipt or invoice file", { exact: true }).setInputFiles({ name: "invoice.png", mimeType: "image/png", buffer: Buffer.from(image, "base64") });
+  await dialog.getByRole("button", { name: "Read with OCR", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Read with OCR", exact: true })).toBeEnabled({ timeout: 90000 });
+}
+
+async function openInvoiceDetails(dialog, index) {
+  const details = dialog.locator("details").nth(index - 1);
+  if (!(await details.evaluate(element => element.open))) await details.locator("summary").click();
+}
+
+function invoicePdf() {
+  const stream = "BT /F1 20 Tf 40 750 Td (INVOICE) Tj 0 -40 Td (Keyboard 3 0.10 0.30) Tj 0 -40 Td (Mouse 2 1.20 2.40) Tj ET";
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>",
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  for (const [index, object] of objects.entries()) {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  }
+  const xref = Buffer.byteLength(pdf);
+  pdf += `xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(offset => String(offset).padStart(10, "0") + " 00000 n ").join("\n")}\ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return Buffer.from(pdf);
+}
+
+test("purchase import reads images and PDFs locally and reviews many products without submitting invoice prices", async ({ page }) => {
+  test.setTimeout(180000);
+  const externalRequests = [];
+  page.on("request", request => { if (/^https?:/.test(request.url()) && !request.url().startsWith("http://localhost:3000")) externalRequests.push(request.url()); });
+  const submitted = [];
+  await page.route("**/api/purchases/import", async route => {
+    if (route.request().method() !== "POST") return route.continue();
+    submitted.push(route.request().postDataJSON());
+    await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: "Test response: purchase was not saved." }) });
+  });
+  await page.goto("/purchasing");
+  const imageData = await page.evaluate(() => {
+    const canvas = document.createElement("canvas"); canvas.width = 1400; canvas.height = 400;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "white"; context.fillRect(0, 0, 1400, 400);
+    context.fillStyle = "black"; context.font = "48px monospace";
+    ["INVOICE", "Keyboard 3 0.10 0.30", "Mouse 2 1.20 2.40"].forEach((line, index) => context.fillText(line, 40, 80 + 100 * index));
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  const files = [{ name: "invoice.png", mimeType: "image/png", buffer: Buffer.from(imageData, "base64") }, { name: "invoice.pdf", mimeType: "application/pdf", buffer: invoicePdf() }];
+  for (const [index, file] of files.entries()) {
+    await page.setViewportSize({ width: index ? 390 : 1280, height: 900 });
+    await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
+    await dialog.getByLabel("Receipt or invoice file", { exact: true }).setInputFiles(file);
+    await dialog.getByRole("button", { name: "Read with OCR", exact: true }).click();
+    await expect(dialog.getByRole("heading", { name: "Review products (2)", exact: true })).toBeVisible({ timeout: 90000 });
+    await openInvoiceDetails(dialog, 1);
+    await expect(dialog.getByRole("textbox", { name: "Product name 1", exact: true })).toHaveValue(/Keyboard/);
+    await expect(dialog.getByRole("heading", { name: "Review products (2)", exact: true })).toBeVisible();
+    await expect(dialog.getByRole("spinbutton", { name: "Quantity 1", exact: true })).toHaveValue("3");
+    await expect(dialog.getByRole("spinbutton", { name: "Unit cost 1 (PHP)", exact: true })).toHaveValue("0.10");
+    const supplier = dialog.getByRole("combobox", { name: "Supplier", exact: true });
+    const supplierId = await supplier.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
+    await supplier.selectOption(supplierId);
+    const first = dialog.getByRole("combobox", { name: "Product match 1", exact: true });
+    const ids = await first.locator("option").evaluateAll(options => options.filter(option => /^\d+$/.test(option.value)).map(option => option.value));
+    expect(ids.length).toBeGreaterThanOrEqual(2);
+    await first.selectOption(ids[0]);
+    await dialog.getByRole("combobox", { name: "Product match 2", exact: true }).selectOption(ids[0]);
+    await expect(dialog.getByText("Each product can appear only once.", { exact: false })).toBeVisible();
+    await dialog.getByRole("checkbox").check();
+    await expect(dialog.getByRole("button", { name: "Save received purchase", exact: true })).toBeDisabled();
+    await dialog.getByRole("combobox", { name: "Product match 2", exact: true }).selectOption(ids[1]);
+    await expect(dialog.getByRole("checkbox")).not.toBeChecked();
+    await expect(dialog.getByText("Select the matching product.", { exact: true })).toHaveCount(0);
+    await dialog.getByRole("checkbox").check();
+    await openInvoiceDetails(dialog, 1);
+    await expect(dialog.getByText("Stored unit cost:", { exact: false }).first()).toBeVisible();
+    await page.screenshot({ path: `test-results/purchase-import-${index ? "mobile" : "desktop"}.png`, fullPage: true });
+    await dialog.getByRole("button", { name: "Save received purchase", exact: true }).click();
+    await expect.poll(() => submitted.length).toBe(index + 1);
+    expect(submitted.at(-1).items).toEqual([{ productId: ids[0], quantity: 3 }, { productId: ids[1], quantity: 2 }]);
+    await expect(page.locator(".snackbar-viewport").getByRole("alert")).toContainText("Test response: purchase was not saved.");
+    await dialog.getByRole("button", { name: "Close modal", exact: true }).click();
+  }
+  expect(externalRequests).toEqual([]);
+});
+
+test("highlighted invoice OCR separates numeric quantities from units and product sizes", async ({ page }) => {
+  test.setTimeout(120000);
+  await page.goto("/purchasing");
+  const image = await page.evaluate(() => {
+    const canvas = document.createElement("canvas"); canvas.width = 1800; canvas.height = 550;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "white"; context.fillRect(0, 0, canvas.width, canvas.height);
+    context.font = "28px monospace"; context.fillStyle = "black";
+    [["QTY", 50], ["DESCRIPTIONS", 300], ["BARCODE", 950], ["DISC.", 1290], ["UNIT PRICE", 1400], ["TOTAL", 1640]].forEach(([label, x]) => context.fillText(label, x, 80));
+    const rows = [
+      ["3", "PCS", "PEDAL PLASTIC 1/2", "BP-CPP1/2", "65.00", "195.00"],
+      ["10", "PAIR", "HANDLE GRIP BLACK", "BP-SHG-BK", "40.00", "400.00"],
+      ["5", "PCS", "TIRE LEO 26 X 1 3/8", "BP-LT26X13/8D", "151.00", "755.00"],
+    ];
+    rows.forEach(([qty, unit, description, barcode, price, total], index) => {
+      const y = 175 + index * 100;
+      context.fillStyle = "#ff8dcb"; context.fillRect(35, y - 35, 160, 45); context.fillRect(1410, y - 35, 155, 45);
+      context.strokeStyle = "#bc5263"; context.lineWidth = 2; context.beginPath(); context.ellipse(75, y - 10, 42, 35, 0, 0, Math.PI * 2); context.stroke();
+      context.fillStyle = "black";
+      [[qty, 50], [unit, 160], [description, 300], [barcode, 950], ["0.00", 1290], [price, 1440], [total, 1640]].forEach(([value, x]) => context.fillText(value, x, y));
+    });
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
+  await dialog.getByLabel("Receipt or invoice file", { exact: true }).setInputFiles({ name: "highlighted-invoice.png", mimeType: "image/png", buffer: Buffer.from(image, "base64") });
+  await dialog.getByRole("button", { name: "Read with OCR", exact: true }).click();
+  await expect(dialog.getByRole("heading", { name: "Review products (3)", exact: true })).toBeVisible({ timeout: 90000 });
+  for (const [index, quantity, price, description] of [[1, "3", "65.00", "PEDAL PLASTIC 1/2"], [2, "10", "40.00", "HANDLE GRIP BLACK"], [3, "5", "151.00", "TIRE LEO 26 X 1 3/8"]]) {
+    await expect(dialog.getByRole("spinbutton", { name: `Quantity ${index}`, exact: true })).toHaveValue(quantity);
+    await expect(dialog.getByRole("spinbutton", { name: `Unit cost ${index} (PHP)`, exact: true })).toHaveValue(price);
+    await openInvoiceDetails(dialog, index);
+    await expect(dialog.getByRole("textbox", { name: `Product name ${index}`, exact: true })).toHaveValue(description);
+  }
+});
+
+test("invoice review separates coded product rows and requires missing quantities to be entered", async ({ page }) => {
+  await page.goto("/purchasing");
+  await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
+  await expect(dialog.getByText("View or paste invoice text", { exact: true })).toHaveCount(0);
+  await readInvoice(page, dialog, "DESCRIPTIONS BARCODE DISC. UNIT PRICE TOTAL\nPCS EPSON INK REFILL 65ML 003 T00V L-EIR65-T00V1 0.00 340.00 340.00\nREAM HARD COPY PAPER SUBS 20 A4 PR OS-HCP20A4 0.00 155.00 310.00\nSUB-TOTAL >> 650.00");
+
+  await expect(dialog.getByRole("heading", { name: "Review products (2)", exact: true })).toBeVisible();
+  await openInvoiceDetails(dialog, 1);
+  await openInvoiceDetails(dialog, 2);
+  await expect(dialog.getByRole("textbox", { name: "Product name 1", exact: true })).toHaveValue("EPSON INK REFILL 65ML 003 T00V");
+  await expect(dialog.getByRole("spinbutton", { name: "Unit cost 1 (PHP)", exact: true })).toHaveValue("340.00");
+  await expect(dialog.getByLabel("Supplier product code 1", { exact: true })).toHaveValue("L-EIR65-T00V1");
+  await dialog.getByRole("button", { name: "New only (2)", exact: true }).click();
+  await expect(dialog.getByRole("textbox", { name: "Product name 1", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Needs review (0)", exact: true }).click();
+  await expect(dialog.getByText("No items in this filter.", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "Product name 2", exact: true })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "All items (2)", exact: true }).click();
+  await expect(dialog.getByLabel(/^Quantity\ 1\s*\*?$/, { exact: true })).toHaveValue("");
+  await expect(dialog.getByText("Enter a quantity for this invoice line.", { exact: false })).toHaveCount(2);
+  await dialog.getByLabel(/^Quantity\ 1\s*\*?$/, { exact: true }).fill("1");
+  await expect(dialog.getByText("Enter a quantity for this invoice line.", { exact: false })).toHaveCount(1);
+  await dialog.getByRole("textbox", { name: "Product name 1", exact: true }).fill("Corrected invoice description");
+  await expect(dialog.getByRole("textbox", { name: "Product name 1", exact: true })).toHaveValue("Corrected invoice description");
+  await dialog.getByRole("checkbox").check();
+  await expect(dialog.getByRole("button", { name: "Save received purchase", exact: true })).toBeDisabled();
+});
+
+test("invoice import reviews new and existing products together and submits one purchase", async ({ page }) => {
+  const submitted = [];
+  await page.route("**/api/purchases/import", async route => {
+    if (route.request().method() !== "POST") return route.continue();
+    submitted.push(route.request().postDataJSON());
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "123" }) });
+  });
+  await page.goto("/purchasing");
+  await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
+  await readInvoice(page, dialog, "New store item 2 10.25 20.50\nExisting store item 3 1.00 3.00");
+
+  await dialog.getByRole("combobox", { name: "Product match 1", exact: true }).selectOption("new");
+  await openInvoiceDetails(dialog, 1);
+  await expect(dialog.getByLabel(/^Product\ name\ 1\s*\*?$/, { exact: true })).toHaveValue("New store item");
+  await expect(dialog.getByLabel(/^Unit\ cost\ 1\ \(PHP\)\s*\*?$/, { exact: true })).toHaveValue("10.25");
+  await expect(dialog.getByLabel(/^Selling\ price\ 1\ \(PHP\)\s*\*?$/, { exact: true })).toHaveValue("");
+  await dialog.getByRole("checkbox").check();
+  await expect(dialog.getByRole("button", { name: "Save received purchase", exact: true })).toBeDisabled();
+  await dialog.getByLabel(/^Selling\ price\ 1\ \(PHP\)\s*\*?$/, { exact: true }).fill("15.00");
+  await expect(dialog.getByRole("checkbox")).not.toBeChecked();
+  await dialog.getByLabel("Size 1", { exact: true }).fill("Small");
+  const existing = dialog.getByRole("combobox", { name: "Product match 2", exact: true });
+  const id = await existing.locator("option").evaluateAll(options => options.find(option => /^\d+$/.test(option.value))?.value);
+  await existing.selectOption(id);
+  const supplier = dialog.getByRole("combobox", { name: "Supplier", exact: true });
+  const supplierId = await supplier.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
+  await supplier.selectOption(supplierId);
+  await expect(dialog.getByText("1 new product will be added to Products when saved.", { exact: true })).toBeVisible();
+  await dialog.getByRole("checkbox").check();
+  await expect(dialog.getByRole("button", { name: "Save received purchase", exact: true })).toBeEnabled();
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await dialog.getByLabel(/^Product\ name\ 1\s*\*?$/, { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `test-results/purchase-new-product-${width}.png`, fullPage: true });
+  }
+  await dialog.getByRole("button", { name: "Save received purchase", exact: true }).click();
+  await expect.poll(() => submitted.length).toBe(1);
+  expect(submitted[0].items).toEqual([
+    { newProduct: { name: "New store item", supplierProductCode: "", size: "Small", unitCost: "10.25", sellingPrice: "15.00" }, quantity: 2 },
+    { productId: id, quantity: 3 },
+  ]);
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator(".snackbar-viewport")).toContainText("Received purchase saved with 1 new product");
+});
+
+test("closing invoice import discards unsaved data through the close button and Escape", async ({ page }) => {
+  await page.goto("/purchasing");
+  const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
+  for (const closeWithEscape of [false, true]) {
+    await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
+    const initialDate = await dialog.getByLabel(/^Purchase\ date\s*\*?$/, { exact: true }).inputValue();
+    await dialog.getByLabel("Receipt or invoice file", { exact: true }).setInputFiles({ name: "invoice.png", mimeType: "image/png", buffer: Buffer.from("selected file") });
+    await readInvoice(page, dialog, "Unsaved product 2 10.00 20.00");
+
+    await dialog.getByRole("combobox", { name: "Product match 1", exact: true }).selectOption("new");
+    await openInvoiceDetails(dialog, 1);
+    await dialog.getByLabel(/^Selling\ price\ 1\ \(PHP\)\s*\*?$/, { exact: true }).fill("15.00");
+    const supplier = dialog.getByRole("combobox", { name: "Supplier", exact: true });
+    const supplierId = await supplier.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
+    await supplier.selectOption(supplierId);
+    await dialog.getByLabel(/^Purchase\ date\s*\*?$/, { exact: true }).fill("2025-01-01");
+    await dialog.getByRole("checkbox").check();
+    if (closeWithEscape) await dialog.press("Escape");
+    else await dialog.getByRole("button", { name: "Close modal", exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
+    await expect(dialog.getByLabel("Receipt or invoice file", { exact: true })).toHaveValue("");
+    await expect(dialog.getByLabel("Extracted invoice text", { exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole("heading", { name: "Review products (0)", exact: true })).toBeVisible();
+    await expect(supplier).toHaveValue("");
+    await expect(dialog.getByLabel(/^Purchase\ date\s*\*?$/, { exact: true })).toHaveValue(initialDate);
+    await expect(dialog.getByRole("checkbox")).not.toBeChecked();
+    await expect(dialog.getByRole("button", { name: "Read with OCR", exact: true })).toBeDisabled();
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Close modal", exact: true }).click();
+  }
+});
+
+test("purchase import rejects unsupported files and remains hidden for read-only users", async ({ page, context }) => {
+  await page.goto("/purchasing");
+  await page.getByRole("button", { name: "Import Receipt / Invoice", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Import purchase receipt or invoice", exact: true });
+  await dialog.getByLabel("Receipt or invoice file", { exact: true }).setInputFiles({ name: "invalid.txt", mimeType: "text/plain", buffer: Buffer.from("text") });
+  await expect(dialog.getByRole("alert")).toContainText("under 20 MB");
+  await expect(dialog.getByRole("button", { name: "Read with OCR", exact: true })).toBeDisabled();
+  const tinyImage = await page.evaluate(() => {
+    const canvas = document.createElement("canvas"); canvas.width = 400; canvas.height = 100;
+    const context = canvas.getContext("2d"); context.fillStyle = "white"; context.fillRect(0, 0, 400, 100);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await dialog.getByLabel("Receipt or invoice file", { exact: true }).setInputFiles({ name: "cancel.png", mimeType: "image/png", buffer: Buffer.from(tinyImage, "base64") });
+  await dialog.getByRole("button", { name: "Read with OCR", exact: true }).click();
+  await dialog.getByRole("button", { name: "Cancel OCR", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Read with OCR", exact: true })).toBeEnabled();
+  await expect(dialog.getByRole("button", { name: "Cancel OCR", exact: true })).toHaveCount(0);
+  await context.clearCookies();
+  await page.goto("/login");
+  await page.getByRole("button", { name: "View as guest", exact: true }).click();
+  await page.goto("/purchasing");
+  await expect(page.getByRole("button", { name: "Import Receipt / Invoice", exact: true })).toBeVisible();
+});
+
+test("numeric form inputs reject text and sales calendars block future dates", async ({ page }) => {
+  await page.goto("/sales/new");
+  const dialog = page.getByRole("dialog", { name: "Create Sales Order", exact: true });
+  const quantity = dialog.getByRole("spinbutton", { name: "Quantity", exact: true });
+  await quantity.fill("");
+  await quantity.pressSequentially("a1e+2-.3");
+  await expect(quantity).toHaveValue("123");
+  const blocked = await quantity.evaluate(element => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text/plain", "12abc");
+    return !element.dispatchEvent(new ClipboardEvent("paste", { clipboardData, bubbles: true, cancelable: true }));
+  });
+  expect(blocked).toBe(true);
+  await expect(quantity).toHaveValue("123");
+  const date = dialog.getByLabel(/^Order\ date\s*\*?$/, { exact: true });
+  const maximum = await date.getAttribute("max");
+  expect(maximum).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  await date.fill("2099-01-01");
+  expect(await date.evaluate(element => element.validity.rangeOverflow)).toBe(true);
+  await date.fill(maximum);
+  expect(await date.evaluate(element => element.checkValidity())).toBe(true);
+  await page.goto("/purchasing/new");
+  await expect(page.getByRole("dialog", { name: "Create Purchase Order", exact: true }).getByLabel(/^Purchase\ date\s*\*?$/)).not.toHaveAttribute("max");
+  await page.goto("/inventory/movements");
+  await page.getByRole("button", { name: "Adjust Stock", exact: true }).click();
+  const adjustment = page.getByRole("spinbutton", { name: "Quantity", exact: true });
+  await adjustment.pressSequentially("a1e+2-.3");
+  await expect(adjustment).toHaveValue("123");
+  await page.goto("/inventory/products");
+  await page.getByRole("button", { name: "Add Product", exact: true }).click();
+  for (const label of ["Unit cost (PHP)", "Selling price (PHP)"]) {
+    const price = page.getByRole("spinbutton", { name: new RegExp(label.replace(/[()]/g, "\\$&")) });
+    await price.fill("");
+    await price.pressSequentially("a1e+2-.34");
+    await expect(price).toHaveValue("12.34");
+  }
+});
+
+test("sales customer tabs switch fields, preserve draft values, and submit only the active customer mode", async ({ page }) => {
+  const submitted = [];
+  await page.route("**/api/orders", async route => {
+    if (route.request().method() !== "POST") return route.continue();
+    submitted.push(route.request().postDataJSON());
+    await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: "Test response: order was not saved." }) });
+  });
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/sales/new");
+    const dialog = page.getByRole("dialog", { name: "Create Sales Order", exact: true });
+    const registered = dialog.getByRole("tab", { name: "Registered Customers", exact: true });
+    const walkIn = dialog.getByRole("tab", { name: "Walk-in Customers", exact: true });
+    await expect(registered).toHaveAttribute("aria-selected", "true");
+    const customer = dialog.getByRole("combobox", { name: "Customer", exact: true });
+    const customerId = await customer.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
+    await customer.selectOption(customerId);
+    const product = dialog.getByRole("combobox", { name: "Product 1", exact: true });
+    const productId = await product.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
+    await product.selectOption(productId);
+    await dialog.getByRole("spinbutton", { name: "Quantity", exact: true }).fill("2");
+    await walkIn.click();
+    await expect(customer).toHaveCount(0);
+    const name = dialog.getByRole("textbox", { name: "Customer name", exact: true });
+    await expect(dialog.getByRole("button", { name: "Create pending order", exact: true })).toBeDisabled();
+    await name.fill("  Walk-in test buyer  ");
+    await walkIn.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(registered).toBeFocused();
+    await expect(customer).toHaveValue(customerId);
+    await expect(name).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Create pending order", exact: true }).click();
+    await expect.poll(() => submitted.length).toBe(width === 1280 ? 1 : 3);
+    expect(submitted.at(-1).partyId).toBe(customerId);
+    expect(submitted.at(-1).walkInCustomer).toBeUndefined();
+    await registered.focus();
+    await page.keyboard.press("Home");
+    await expect(walkIn).toBeFocused();
+    await expect(name).toHaveValue("  Walk-in test buyer  ");
+    await expect(product).toHaveValue(productId);
+    await dialog.getByRole("button", { name: "Create pending order", exact: true }).click();
+    await expect.poll(() => submitted.length).toBe(width === 1280 ? 2 : 4);
+    expect(submitted.at(-1).walkInCustomer).toEqual({ name: "Walk-in test buyer" });
+    expect(submitted.at(-1).partyId).toBeUndefined();
+    expect(submitted.at(-1).items).toEqual([{ productId, quantity: 2 }]);
+    const bounds = await dialog.getByRole("tablist").boundingBox();
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+  }
+  await page.goto("/purchasing/new");
+  await expect(page.getByRole("tablist", { name: "Customer type" })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Supplier", exact: true })).toBeVisible();
+});
+
 test("dashboard shows recent orders and keeps currency axis labels within the chart", async ({ page }) => {
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
@@ -31,8 +446,8 @@ test("sales product selection keeps fields aligned and stock details below the p
     await page.goto("/sales");
     await page.getByRole("button", { name: "New Order", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Create Sales Order", exact: true });
-    const product = dialog.getByRole("combobox", { name: "Product 1 *", exact: true });
-    const quantity = dialog.getByRole("spinbutton", { name: "Quantity *", exact: true });
+    const product = dialog.getByRole("combobox", { name: "Product 1", exact: true });
+    const quantity = dialog.getByRole("spinbutton", { name: "Quantity", exact: true });
     const amount = dialog.getByText("Line total", { exact: true }).locator("..").locator("div");
     const before = await Promise.all([product.boundingBox(), quantity.boundingBox(), amount.boundingBox()]);
     const productId = await product.locator("option").evaluateAll(options => options.find(option => option.value)?.value);
@@ -62,7 +477,7 @@ test("form feedback floats above modals, repeats, dismisses and survives a succe
   await page.goto("/customers");
   await page.getByRole("button", { name: "Add Customer", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Add customer", exact: true });
-  await dialog.getByLabel("Name *", { exact: true }).fill("Snackbar test");
+  await dialog.getByLabel(/^Name\s*\*?$/, { exact: true }).fill("Snackbar test");
   const snackbar = page.locator(".snackbar-viewport");
   for (let attempt = 0; attempt < 2; attempt++) {
     await dialog.getByRole("button", { name: "Save customer", exact: true }).click();
@@ -95,16 +510,30 @@ test("form feedback floats above modals, repeats, dismisses and survives a succe
   expect(errors).toEqual([]);
 });
 
-test("sidebar hides its scrollbar while lower navigation remains reachable", async ({ page }) => {
+test("sidebar shows a slim scrollbar on hover and keyboard focus while lower navigation remains reachable", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 500 });
   await page.goto("/customers");
+  await page.getByRole("heading", { name: "Customers", exact: true }).waitFor();
+  await page.locator("html").evaluate(element => element.setAttribute("data-theme", "light"));
   const sidebar = page.locator("aside.sidebar-scroll:visible");
+  await page.mouse.move(1000, 400);
   const scroll = await sidebar.evaluate(element => ({
     scrollbar: getComputedStyle(element).scrollbarWidth,
+    color: getComputedStyle(element).scrollbarColor,
     overflow: getComputedStyle(element).overflowY,
     scrollable: element.scrollHeight > element.clientHeight,
   }));
-  expect(scroll).toEqual({ scrollbar: "none", overflow: "auto", scrollable: true });
+  expect(scroll).toEqual({ scrollbar: "thin", color: "rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)", overflow: "auto", scrollable: true });
+  const initialWidth = await sidebar.evaluate(element => element.clientWidth);
+  await sidebar.hover();
+  await expect.poll(() => sidebar.evaluate(element => getComputedStyle(element).scrollbarColor)).toBe("rgb(148, 163, 184) rgba(0, 0, 0, 0)");
+  expect(await sidebar.evaluate(element => element.clientWidth)).toBe(initialWidth);
+  await page.mouse.move(1000, 400);
+  await expect.poll(() => sidebar.evaluate(element => getComputedStyle(element).scrollbarColor)).toBe(scroll.color);
+  await sidebar.getByRole("link", { name: "Dashboard", exact: true }).focus();
+  await expect.poll(() => sidebar.evaluate(element => getComputedStyle(element).scrollbarColor)).toBe("rgb(148, 163, 184) rgba(0, 0, 0, 0)");
+  await page.locator("html").evaluate(element => element.setAttribute("data-theme", "dark"));
+  await expect.poll(() => sidebar.evaluate(element => getComputedStyle(element).scrollbarColor)).toBe("rgb(82, 82, 82) rgba(0, 0, 0, 0)");
   await sidebar.getByRole("link", { name: "Settings", exact: true }).scrollIntoViewIfNeeded();
   expect(await sidebar.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
   await sidebar.getByRole("link", { name: "Settings", exact: true }).click();
@@ -115,7 +544,11 @@ test("feature pages load database data and open creation, editing and detail mod
   for (const [path, heading, add, dialog] of [["/customers", "Customers", "Add Customer", "Add customer"], ["/suppliers", "Suppliers", "Add Supplier", "Add supplier"], ["/sales", "Sales Orders", "New Order", "Create Sales Order"], ["/purchasing", "Purchase Orders", "New Purchase Order", "Create Purchase Order"], ["/settings/users", "Users", "Add User", "Add user"]]) {
     await page.goto(path); await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
     await page.getByRole("button", { name: add, exact: true }).click();
-    await expect(page.getByRole("dialog", { name: dialog, exact: true })).toBeVisible();
+    const formDialog = page.getByRole("dialog", { name: dialog, exact: true });
+    await expect(formDialog).toBeVisible();
+    const missingRequiredMarkers = await formDialog.locator("input[required], select[required], textarea[required]").evaluateAll(fields => fields.filter(field => !Array.from(field.labels ?? []).some(label => label.querySelector("span.text-red-500[aria-hidden='true']"))).map(field => field.name || field.id || field.tagName));
+    expect(missingRequiredMarkers).toEqual([]);
+    if (path === "/sales" || path === "/purchasing") await page.screenshot({ path: `test-results/${path.slice(1)}-form-labels.png`, fullPage: true });
     await page.getByRole("button", { name: "Close modal" }).click();
     await expect(page.getByRole("dialog")).not.toBeVisible();
   }
@@ -167,6 +600,8 @@ test("shared search, pagination, date filters and report empty states work", asy
   await page.goto("/reports/sales");
   await expect(page.getByRole("gridcell").first()).toBeVisible();
   await page.getByLabel("From (PH time)").fill("2099-01-01");
+  await expect(page.getByLabel("From (PH time)")).not.toHaveValue("2099-01-01");
+  await page.getByLabel("To (PH time)").fill("1900-01-01");
   await expect(page.getByText("No transactions in this period.")).toBeVisible();
   await page.screenshot({ path: "test-results/sales-report.png", fullPage: true });
 });
@@ -240,27 +675,26 @@ test("login page displays safe sign-in errors", async ({ page, context }) => {
 });
 
 
-test("guest entry browses all modules, blocks writes, and offers header controls", async ({ page, context }) => {
+test("guest entry browses business demos, denies administration and writes, and offers header controls", async ({ page, context }) => {
   test.setTimeout(120000);
   await context.clearCookies();
   await page.goto("/login");
   await page.getByRole("button", { name: "View as guest", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByText("Viewing as Guest. All modules are read-only.")).toBeVisible();
+  await expect(page.getByText(/Viewing as Guest\. Read-only snapshot of erp_lite demo data/)).toBeVisible();
   for (const path of ["/sales", "/customers", "/inventory/products", "/inventory/movements", "/purchasing", "/suppliers", "/finance/ledger", "/reports/sales", "/reports/purchases", "/reports/inventory", "/settings/users", "/settings"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByText("Unable to load this page")).not.toBeVisible();
-    await expect(page.getByRole("button", { name: /^(Add (Product|Customer|Supplier|User)|New Order|New Purchase Order|Adjust Stock|Change password|Edit |Actions for order )/ })).toHaveCount(0);
   }
-  for (const [method, path] of [["post", "/api/products"], ["patch", "/api/products/1"], ["post", "/api/customers"], ["patch", "/api/customers/1"], ["post", "/api/suppliers"], ["patch", "/api/suppliers/1"], ["post", "/api/orders"], ["patch", "/api/orders/1"], ["post", "/api/purchases"], ["patch", "/api/purchases/1"], ["post", "/api/inventory/adjustments"], ["post", "/api/users"], ["patch", "/api/users/1"], ["post", "/api/auth/password"]]) {
+  for (const [method, path] of [["post", "/api/products"], ["patch", "/api/products/1"], ["post", "/api/customers"], ["patch", "/api/customers/1"], ["post", "/api/suppliers"], ["patch", "/api/suppliers/1"], ["post", "/api/orders"], ["patch", "/api/orders/1"], ["post", "/api/purchases"], ["post", "/api/purchases/import"], ["patch", "/api/purchases/1"], ["post", "/api/inventory/adjustments"], ["post", "/api/users"], ["patch", "/api/users/1"], ["post", "/api/auth/password"]]) {
     const response = await context.request[method](path, { headers: { Origin: "http://localhost:3000" }, data: {} });
     expect(response.status(), path).toBe(403);
   }
-  for (const path of ["/sales/new", "/purchasing/new"]) {
+  for (const [path, destination] of [["/settings", "/dashboard"], ["/settings/users", "/dashboard"], ["/settings/audit", "/dashboard"], ["/sales/new", "/sales"], ["/purchasing/new", "/purchasing"]]) {
     await page.goto(path);
-    await expect(page).toHaveURL(new RegExp(path.replace("/new", "") + "$"));
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(destination + "$"));
+    await expect(page.getByRole("dialog")).not.toBeVisible();
   }
   await page.goto("/customers");
   await page.getByRole("button", { name: /^Details for / }).first().click();
