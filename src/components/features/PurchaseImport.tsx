@@ -89,13 +89,15 @@ export default function PurchaseImport({ parties, products }: { parties: Contact
   }
   function extract(value: string) {
     setFilter("all");
-    setLines(parsePurchaseText(value, products).map(line => line.matchStatus === "unmatched" ? { ...line, warning: line.warning.replace("Select the matching product.", "").trim(), newProduct: { name: line.description, supplierProductCode: line.supplierProductCode, size: "", unitCost: line.unitPrice, sellingPrice: "" } } : line));
+    const parsed = parsePurchaseText(value, products);
+    setLines(parsed.map(line => line.matchStatus === "unmatched" ? { ...line, warning: line.warning.replace("Select the matching product.", "").trim(), newProduct: { name: line.description, supplierProductCode: line.supplierProductCode, size: "", unitCost: line.unitPrice, sellingPrice: "" } } : line));
     const names = value.split(/\r?\n/).map(normalizeImportName);
     const suppliers = parties.filter(party => party.status === "ACTIVE" && names.includes(normalizeImportName(party.name)));
     setPartyId(suppliers.length === 1 ? suppliers[0].id : "");
     const dates = [...new Set(value.match(/\b\d{4}-\d{2}-\d{2}\b/g) ?? [])];
     if (dates.length === 1 && calendarDateSchema.safeParse(dates[0]).success) setDate(dates[0]);
     setReviewed(false);
+    return parsed.length;
   }
   function updateNewProduct(index: number, patch: Partial<CreateProductInput>) {
     const product = lines[index]?.newProduct;
@@ -110,8 +112,10 @@ export default function PurchaseImport({ parties, products }: { parties: Contact
         if (controller.current === abort && !abort.signal.aborted) setProgress(message);
       }, abort.signal);
       if (abort.signal.aborted) return;
-      extract(result);
-      if (!result.trim()) setError("No text was found. Try a clearer scan or add products manually.");
+      const count = extract(result);
+      if (!count) setError(result.trim()
+        ? "Text was read, but no product rows were recognized. Try a clearer photo showing every column, or add products manually."
+        : "No text was found. Try a clearer scan or add products manually.");
     } catch (failure) {
       if (!abort.signal.aborted) setError(failure instanceof Error ? failure.message : "Unable to read this invoice. Try a clearer image.");
     } finally {
@@ -160,6 +164,8 @@ export default function PurchaseImport({ parties, products }: { parties: Contact
         void mutation.submit("/api/purchases/import", "POST", { ...validation.data, importKey: importKey.current }, () => { closeImport(); notify(newProductCount ? `Received purchase saved with ${newProductCount} new product${newProductCount === 1 ? "" : "s"}. Stock has been updated.` : "Received purchase saved. Stock has been updated."); });
       }}>
         <p className="text-sm text-slate-500 dark:text-neutral-400">Import an invoice for goods already received. Match each line to an existing product or create a new product. Review the actual invoice unit costs. Saving records a received purchase, adds stock and records the amount owed to the supplier; it does not record payment.</p>
+        {reading && <div role="status" className="flex flex-wrap items-center gap-3 text-sm"><span>{progress}</span><button type="button" className={secondaryButton} onClick={() => controller.current?.abort()}>Cancel OCR</button></div>}
+        {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         <fieldset disabled={reading || mutation.saving} className="space-y-5">
           <FormLabel label="Receipt or invoice file" className="gap-2"><input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp,application/pdf" onChange={event => {
             const selected = event.target.files?.[0]; setError(""); setFilter("all"); setLines([]); setReviewed(false);
@@ -234,8 +240,6 @@ export default function PurchaseImport({ parties, products }: { parties: Contact
           {unconfirmed && <p className="text-sm text-amber-700 dark:text-amber-400">Confirm suggested matches or choose a product for every unresolved line.</p>}
           <div className="flex justify-end"><button type="submit" className={primaryButton} disabled={isGuest || !reviewed || !validation.success || catalogDuplicates.some(Boolean) || unconfirmed}>{mutation.saving ? "Saving..." : "Save received purchase"}</button></div>
         </fieldset>
-        {reading && <div role="status" className="flex flex-wrap items-center gap-3 text-sm"><span>{progress}</span><button type="button" className={secondaryButton} onClick={() => controller.current?.abort()}>Cancel OCR</button></div>}
-        {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       </form>
     </Modal>
   </>;

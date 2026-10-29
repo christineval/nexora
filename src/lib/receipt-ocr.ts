@@ -1,4 +1,6 @@
 import { prepareReceiptImage } from "./receipt-image";
+import { loadReceiptCanvas, receiptCanvasSize } from "./receipt-input";
+import { parsePurchaseText } from "./purchase-import";
 import { receiptBarcodeIndex, receiptCell, receiptOriginalQuantity, receiptQuantityColumns, receiptRowBaseline } from "./receipt-table";
 
 export const maxReceiptSize = 20 * 1024 * 1024;
@@ -23,6 +25,7 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
   let pageLabel = "Invoice";
   const creatingWorker = createWorker("eng", 1, {
     workerPath: "/ocr/worker.min.js", corePath: "/ocr/core", langPath: "/ocr/lang",
+    workerBlobURL: false,
     logger: message => {
       if (signal.aborted) return;
       if (recognizingPage && message.status === "recognizing text") onProgress(`${pageLabel}: recognizing text ${Math.min(100, Math.max(0, Math.round(message.progress * 100)))}% (recognition stage)`);
@@ -138,24 +141,27 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
       }
     }
     if (file.type !== "application/pdf") {
-      const bitmap = await createImageBitmap(file);
+      onProgress("Preparing invoice image...");
+      const canvas = await loadReceiptCanvas(file, signal);
       try {
-        if (bitmap.width * bitmap.height > 24000000) throw new Error("This image is too large. Use an image under 24 megapixels.");
-        const canvas = document.createElement("canvas");
-        canvas.width = bitmap.width; canvas.height = bitmap.height;
-        const context = canvas.getContext("2d");
-        if (!context) throw new Error("Your browser could not read this image.");
-        context.fillStyle = "white"; context.fillRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(bitmap, 0, 0);
-        const text = await recognizePage(canvas);
+        let text = await recognizePage(canvas);
+        if (!parsePurchaseText(text, []).length) {
+          signal.throwIfAborted();
+          onProgress("No product rows found yet. Retrying the original image...");
+          await abortable(worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO, tessedit_char_whitelist: "" }), signal);
+          recognizingPage = true;
+          // Some phone photos lose small digits during contrast enhancement or table reconstruction.
+          const { data: original } = await abortable(worker.recognize(canvas, {}, { text: true }), signal);
+          recognizingPage = false;
+          if (parsePurchaseText(original.text, []).length) text = original.text;
+        }
         signal.throwIfAborted();
         onProgress("Invoice extraction complete: 100%");
-        canvas.width = canvas.height = 0;
         return text;
-      } finally { bitmap.close(); }
+      } finally { canvas.width = canvas.height = 0; }
     }
-    const pdfjs = await import("pdfjs-dist");
-    pdfjs.GlobalWorkerOptions.workerSrc = "/ocr/pdf.worker.min.mjs";
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    pdfjs.GlobalWorkerOptions.workerSrc = "/ocr/pdf.worker.legacy.min.mjs";
     const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
     const abortPdf = () => { void task.destroy(); };
     signal.addEventListener("abort", abortPdf, { once: true });
@@ -168,14 +174,18 @@ export async function readReceipt(file: File, onProgress: (message: string) => v
         onProgress(`Reading PDF page ${index} of ${pdf.numPages}`);
         pageLabel = `PDF page ${index} of ${pdf.numPages}`;
         const page = await pdf.getPage(index);
-        const viewport = page.getViewport({ scale: 2 });
-        if (viewport.width * viewport.height > 24000000) throw new Error("This PDF page is too large to read. Export it at a smaller size.");
+        const original = page.getViewport({ scale: 2 });
+        const size = receiptCanvasSize(original.width, original.height);
+        const viewport = page.getViewport({ scale: 2 * Math.min(size.width / original.width, size.height / original.height) });
         const canvas = document.createElement("canvas");
         canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
-        await abortable(page.render({ canvas, viewport }).promise, signal);
-        pages.push(await recognizePage(canvas));
-        canvas.width = 0; canvas.height = 0;
-        page.cleanup();
+        try {
+          await abortable(page.render({ canvas, viewport }).promise, signal);
+          pages.push(await recognizePage(canvas));
+        } finally {
+          canvas.width = canvas.height = 0;
+          page.cleanup();
+        }
       }
       onProgress("Invoice extraction complete: 100%");
       return pages.join("\n\n");

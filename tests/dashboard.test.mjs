@@ -27,6 +27,8 @@ test("dashboard recent orders are bounded, include existing statuses and preserv
   };
   const prisma = { async $transaction(operation, options) {
     assert.equal(options.isolationLevel, "RepeatableRead");
+    assert.equal(options.maxWait, 10000);
+    assert.equal(options.timeout, 30000);
     return operation(tx);
   } };
   const { getDashboardMetrics } = loadTs("src/services/dashboard.service.ts", { "@/lib/prisma": { prisma } });
