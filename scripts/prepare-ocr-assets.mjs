@@ -7,7 +7,7 @@ const output = join(root, "public", "ocr");
 await mkdir(join(output, "core"), { recursive: true });
 await mkdir(join(output, "lang"), { recursive: true });
 await copyFile(join(root, "node_modules/tesseract.js/dist/worker.min.js"), join(output, "worker.min.js"));
-await copyFile(join(root, "node_modules/pdfjs-dist/build/pdf.worker.min.mjs"), join(output, "pdf.worker.min.mjs"));
+await copyFile(join(root, "node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs"), join(output, "pdf.worker.legacy.min.mjs"));
 await copyFile(join(root, "node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz"), join(output, "lang/eng.traineddata.gz"));
 await copyFile(join(root, "node_modules/tesseract.js/LICENSE.md"), join(output, "TESSERACT-LICENSE.txt"));
 await copyFile(join(root, "node_modules/tesseract.js-core/LICENSE"), join(output, "TESSERACT-CORE-LICENSE.txt"));
